@@ -86,19 +86,19 @@ class Element(ABC):
             return None
         return results[-1]
 
-    def find_element(self, delay: int = 0, retry: int = 0, timeout: int = 15, ignore_error: bool = False) -> bool:
+    def find_element(self, delay: int = 0, retry: int = 0, timeout: int = 180, ignore_error: bool = False) -> bool:
         """在当前标签页中按 self._element 描述定位元素，成功返回 True。"""
         inst = FindElementInstruction(tab_id=self.tab_id, element=self._element, delay=delay, retry=retry, timeout=timeout, ignore_error=ignore_error)
-        data = self._execute_instruction([inst], timeout=timeout + 15)
+        data = self._execute_instruction([inst], timeout=timeout)
         first = self._first_result(data)
         if not first or not first.get("success"):
             return False
         return True
 
-    def wait(self, wait_type: str, title_text: str = None, element_name: str = None, attribute: str = None, attribute_text: str = None, delay: int = 0, retry: int = 0, timeout: int = 0, ignore_error: bool = False) -> bool:
+    def wait(self, wait_type: str, title_text: str = None, attribute: str = None, attribute_text: str = None, delay: int = 0, retry: int = 0, timeout: int = 180, ignore_error: bool = False) -> bool:
         """等待指定条件（标题、元素存在/可见、属性包含文本等）。"""
-        inst = WaitInstruction(tab_id=self.tab_id, wait_type=wait_type, title_text=title_text, element=self._element, element_name=element_name, attribute=attribute, attribute_text=attribute_text, delay=delay, retry=retry, timeout=timeout)
-        data = self._execute_instruction([inst], timeout=timeout + 15)
+        inst = WaitInstruction(tab_id=self.tab_id, wait_type=wait_type, title_text=title_text, element=self._element, attribute=attribute, attribute_text=attribute_text, delay=delay, retry=retry, timeout=timeout, ignore_error=ignore_error)
+        data = self._execute_instruction([inst], timeout=timeout)
         first = self._first_result(data)
         return bool(first and first.get("success"))
 

@@ -62,6 +62,8 @@ class Domain:
         start_url: str = None,
         active: bool = True,
         new_window: bool = False,
+        domain: str = None,
+        **kwargs,
     ):
         self._browser = browser
         self._node_name = node_name
@@ -74,6 +76,7 @@ class Domain:
         self._start_url = start_url
         self._active = active
         self._new_window = new_window
+        self._domain = domain
 
     @property
     def description(self) -> str:

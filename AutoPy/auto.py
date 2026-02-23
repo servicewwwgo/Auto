@@ -28,9 +28,10 @@ def _domain_class_name(domain: str) -> str:
 
 
 def _page_class_name(page: str) -> str:
-    """page → Page 类名，如 'Home' → 'HomePage'。"""
+    """page 包名 → Page 类名，如 'Home' → 'HomePage'，'Live_Setup_and_Eligibility_Check_Page' → 'LiveSetupAndEligibilityCheckPage'。"""
     parts = page.strip().replace("-", "_").split("_")
-    return "".join(p.capitalize() for p in parts) + "Page"
+    base = "".join(p.capitalize() for p in parts)
+    return base if base.endswith("Page") else base + "Page"
 
 
 def _element_class_name(element: str) -> str:
@@ -39,27 +40,17 @@ def _element_class_name(element: str) -> str:
     return "".join(p.capitalize() for p in parts)
 
 
-def _normalize_domain(domain: str) -> str:
-    """规范为包名：小写、取 '.' 前一段，如 'Facebook.com' → 'facebook'。"""
-    return (domain or "").strip().lower().split(".")[0].replace("-", "_") or "facebook"
-
-
-def _normalize_page(page: str) -> str:
-    """规范为页面包名：如 'home' → 'Home'，'live_stream' → 'LiveStream'。"""
-    parts = (page or "").strip().replace("-", "_").split("_")
-    return "".join(p.capitalize() for p in parts)
-
-
-def _normalize_element(element: str) -> str:
-    """规范为元素模块名：蛇形，如 'StreamKeyInput' → 'stream_key_input'。"""
-    return (element or "").strip().replace("-", "_")
+def _to_package_name(s: str, lowercase: bool = False) -> str:
+    """规范为包名：strip、'-'→'_'，可选小写。包名即调用名，无需映射。"""
+    out = (s or "").strip().replace("-", "_")
+    return out.lower() if lowercase else out
 
 
 def get_domain(domain: str, browser: Browser, node_name: str, description: str = "", language: str = "en-US", start_url: str | None = None, active: bool = True, new_window: bool = False) -> Domain:
     """
     根据 domain 动态导入并创建 Domain 子类实例。
 
-    - domain: 站点标识，如 'facebook'、'onestream' 或 'facebook.com'。
+    - domain: 站点包名（与目录名一致），如 'facebook'。
     - browser: Browser 实例。
     - node_name: 节点名。
     - description: 基类 Domain 参数。
@@ -71,9 +62,9 @@ def get_domain(domain: str, browser: Browser, node_name: str, description: str =
     Returns:
         Domain 子类实例，如 FacebookDomain、OnestreamDomain。
     """
-    domain = _normalize_domain(domain)
-    mod = importlib.import_module(domain)
-    cls = getattr(mod, _domain_class_name(domain))
+    domain_mod = _to_package_name(domain, lowercase=True).split(".")[0] or "facebook"
+    mod = importlib.import_module(domain_mod)
+    cls = getattr(mod, _domain_class_name(domain_mod))
     return cls(browser=browser, node_name=node_name, description=description, language=language, start_url=start_url, active=active, new_window=new_window)
 
 
@@ -81,8 +72,8 @@ def get_page(domain: str, page: str, browser: Browser, node_name: str, domain_in
     """
     根据 domain、page 动态导入并创建 Page 子类实例。
 
-    - domain: 站点包名，如 'facebook'。
-    - page: 页面名（对应子包名），如 'Home'、'Live'。
+    - domain: 站点包名（与目录名一致），如 'facebook'。
+    - page: 页面包名（与目录名一致），如 'Home'、'Live'、'Live_Setup_and_Eligibility_Check_Page'。
     - browser: Browser 实例。
     - node_name: 节点名。
     - domain_instance: 已创建的 Domain 实例（如 FacebookDomain）。
@@ -92,10 +83,10 @@ def get_page(domain: str, page: str, browser: Browser, node_name: str, domain_in
     Returns:
         Page 子类实例，如 HomePage、LivePage。
     """
-    domain = _normalize_domain(domain)
-    page_mod = _normalize_page(page)
-    mod = importlib.import_module(f"{domain}.{page_mod}")
-    cls = getattr(mod, _page_class_name(page))
+    domain_mod = _to_package_name(domain, lowercase=True).split(".")[0] or "facebook"
+    page_mod = _to_package_name(page)
+    mod = importlib.import_module(f"{domain_mod}.{page_mod}")
+    cls = getattr(mod, _page_class_name(page_mod))
     return cls(browser=browser, node_name=node_name, domain=domain_instance, description=description, language=language)
 
 
@@ -103,9 +94,9 @@ def get_element(domain: str, page: str, element: str, browser: Browser, node_nam
     """
     根据 domain、page、element 动态导入并创建 Element 子类实例。
 
-    - domain: 站点包名，如 'facebook'。
-    - page: 页面名，如 'Live'。
-    - element: 元素模块名（蛇形），如 'stream_key_input'。
+    - domain: 站点包名（与目录名一致），如 'facebook'。
+    - page: 页面包名（与目录名一致），如 'Live'、'Live_Setup_and_Eligibility_Check_Page'。
+    - element: 元素包名（与目录名一致），如 'stream_key_input'、'royal_login_button'。
     - browser: Browser 实例。
     - node_name: 节点名。
     - domain_instance: 已创建的 Domain 实例。
@@ -116,10 +107,10 @@ def get_element(domain: str, page: str, element: str, browser: Browser, node_nam
     Returns:
         Element 子类实例，如 StreamKeyInput。
     """
-    domain = _normalize_domain(domain)
-    page_mod = _normalize_page(page)
-    element_mod = _normalize_element(element)
-    mod = importlib.import_module(f"{domain}.{page_mod}.{element_mod}")
+    domain_mod = _to_package_name(domain, lowercase=True).split(".")[0] or "facebook"
+    page_mod = _to_package_name(page)
+    element_mod = _to_package_name(element)
+    mod = importlib.import_module(f"{domain_mod}.{page_mod}.{element_mod}")
     cls = getattr(mod, _element_class_name(element_mod))
     return cls(browser=browser, node_name=node_name, domain=domain_instance, page=page_instance, language=language)
 

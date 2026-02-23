@@ -8,16 +8,19 @@ from AutoPy import Domain
 
 
 class OnestreamDomain(Domain):
-    """Onestream 站点域。"""
+    """Onestream 站点域。参考 autojs.py 中 Onestream 类。"""
+
+    HOME_URL = "https://app.onestream.live/"
+    LOGIN_URL = "https://app.onestream.live/login/"
 
     def __init__(self, browser, node_name: str, **kwargs):
         super().__init__(
             browser,
             node_name,
-            domain="onestream.com",
+            domain="onestream.live",
             description="Onestream",
             language=kwargs.pop("language", "en-US"),
-            start_url=kwargs.pop("start_url", None),
+            start_url=kwargs.pop("start_url", OnestreamDomain.HOME_URL),
             active=kwargs.pop("active", True),
             new_window=kwargs.pop("new_window", False),
             **kwargs,
