@@ -7,6 +7,7 @@ Element 封装与页面元素相关的操作，通过 Browser 发送指令到节
 
 import json
 from abc import ABC, abstractmethod
+from enum import Enum
 from ..browser import Browser
 from ..cmd import ElementClass, FindElementInstruction, GetAttributeInstruction, InputInstruction, Instructions, KeyboardInstruction, MouseInstruction, ScreenshotInstruction, SetAttributeInstruction, WaitInstruction
 from ..domain import Domain
@@ -17,8 +18,33 @@ from ..page import Page
 ElementClassRef = ElementClass
 
 
+class PreInstruction(Enum):
+    """前置指令类型：先执行 find_element 定位元素，或先执行 wait 等待元素。"""
+    FIND_ELEMENT = "find_element"
+    WAIT = "wait"
+
+
 class Element(ABC):
     """页面元素抽象：封装元素描述与指令执行，通过 Browser 发送指令到节点并解析 results。"""
+
+    _instances: dict[type["Element"], "Element"] = {}
+
+    @classmethod
+    def instance(
+        cls,
+        browser: Browser,
+        node_name: str,
+        domain: Domain,
+        page: Page,
+        **kwargs
+    ) -> "Element":
+        """
+        获取当前类的单例实例。每个子类有独立的单例。
+        首次调用时使用传入参数创建实例，后续调用返回已缓存的实例。
+        """
+        if cls not in cls._instances:
+            cls._instances[cls] = cls(browser=browser, node_name=node_name, domain=domain, page=page, **kwargs)
+        return cls._instances[cls]
 
     def __init__(self, browser: Browser, node_name: str, domain: Domain, page: Page, description: str = "", language: str = "en-US"):
         self._browser = browser
@@ -69,84 +95,92 @@ class Element(ABC):
             raise NetworkError(f"指令 API 返回错误: code={api_code}, message={body.get('message', '')}", data=body)
         return body.get("data", {})
 
-    def _first_result(self, data: dict) -> dict | None:
-        """从 _execute_instruction 的 data 中取第一条指令结果。"""
+    def _all_succeeded(self, data: dict, instructions: list) -> bool:
+        """判断指令执行结果列表中是否全部成功：结果数量与指令数一致且每条结果的 success 均为 True。"""
+        if not instructions:
+            return True
         results = data.get("results") or []
-        if not results:
-            return None
-        first = results[0]
-        if not first.get("success"):
-            return None
-        return first
+        if len(results) != len(instructions):
+            return False
+        return all(r.get("success") for r in results)
 
-    def _last_result(self, data: dict) -> dict | None:
-        """从 _execute_instruction 的 data 中取最后一条指令结果。"""
-        results = data.get("results") or []
-        if not results:
-            return None
-        return results[-1]
+    def _result_by_instruction_id(self, data: dict, instruction_id: str) -> dict | None:
+        """从 _execute_instruction 的 data 中按 instructionID 取对应指令结果（结果顺序不固定时用）。"""
+        for r in (data.get("results") or []):
+            if r.get("instructionID") == instruction_id:
+                return r
+        return None
+
+    def _pre_instructions(self, pre: PreInstruction, delay: int, retry: int, timeout: int, ignore_error: bool) -> list:
+        """根据 pre 返回前置指令列表：PreInstruction.WAIT 为等待指令，PreInstruction.FIND_ELEMENT 为查找元素指令。"""
+        if pre == PreInstruction.WAIT:
+            return [WaitInstruction(tab_id=self.tab_id, wait_type="wait_element_exists", element=self._element, delay=delay, retry=retry, timeout=timeout, ignore_error=ignore_error)]
+        else:
+            return [FindElementInstruction(tab_id=self.tab_id, element=self._element, delay=delay, retry=retry, timeout=timeout, ignore_error=ignore_error)]
 
     def find_element(self, delay: int = 0, retry: int = 0, timeout: int = 180, ignore_error: bool = False) -> bool:
         """在当前标签页中按 self._element 描述定位元素，成功返回 True。"""
         inst = FindElementInstruction(tab_id=self.tab_id, element=self._element, delay=delay, retry=retry, timeout=timeout, ignore_error=ignore_error)
         data = self._execute_instruction([inst], timeout=timeout)
-        first = self._first_result(data)
-        if not first or not first.get("success"):
-            return False
-        return True
+        return self._all_succeeded(data, [inst])
 
     def wait(self, wait_type: str, title_text: str = None, attribute: str = None, attribute_text: str = None, delay: int = 0, retry: int = 0, timeout: int = 180, ignore_error: bool = False) -> bool:
         """等待指定条件（标题、元素存在/可见、属性包含文本等）。"""
         inst = WaitInstruction(tab_id=self.tab_id, wait_type=wait_type, title_text=title_text, element=self._element, attribute=attribute, attribute_text=attribute_text, delay=delay, retry=retry, timeout=timeout, ignore_error=ignore_error)
         data = self._execute_instruction([inst], timeout=timeout)
-        first = self._first_result(data)
-        return bool(first and first.get("success"))
+        return self._all_succeeded(data, [inst])
 
-    def input(self, text: str, clear: bool = False, delay: int = 0, retry: int = 0, timeout: int = 30, ignore_error: bool = False) -> bool:
-        """向当前元素输入文本，可选先清空。"""
-        wait_inst = WaitInstruction(tab_id=self.tab_id, wait_type="wait_element_exists", element=self._element, delay=delay, retry=retry, timeout=timeout or 30)
+    def input(self, text: str, clear: bool = False, delay: int = 0, retry: int = 0, timeout: int = 30, ignore_error: bool = False, pre: PreInstruction = PreInstruction.WAIT) -> bool:
+        """向当前元素输入文本，可选先清空。pre 可选 find_element（先定位）或 wait（先等待元素）。"""
+        pre_insts = self._pre_instructions(pre, delay, retry, timeout, ignore_error)
         inst = InputInstruction(tab_id=self.tab_id, element_name=self._element.name, text=text, clear=clear, delay=delay, retry=retry, timeout=timeout, ignore_error=ignore_error)
-        data = self._execute_instruction([wait_inst, inst], timeout=timeout * 2)
-        last = self._last_result(data)
-        return bool(last and last.get("success"))
+        instructions = pre_insts + [inst]
+        data = self._execute_instruction(instructions, timeout=timeout * 2)
+        return self._all_succeeded(data, instructions)
 
-    def mouse(self, action: str, simulate: str = None, x: int = None, y: int = None, delay: int = 0, retry: int = 0, timeout: int = 0, ignore_error: bool = False) -> bool:
-        """执行鼠标操作：click、dblclick、rightclick、hover、left_mousedown、left_mouseup、right_mousedown、right_mouseup、move_to。"""
-        wait_inst = WaitInstruction(tab_id=self.tab_id, wait_type="wait_element_exists", element=self._element, delay=delay, retry=retry, timeout=timeout or 30)
+    def mouse(self, action: str, simulate: str = "none", x: int = None, y: int = None, delay: int = 0, retry: int = 0, timeout: int = 0, ignore_error: bool = False, pre: PreInstruction = PreInstruction.WAIT) -> bool:
+        """执行鼠标操作：click、dblclick、rightclick、hover、left_mousedown、left_mouseup、right_mousedown、right_mouseup、move_to。pre 可选 find_element 或 wait。"""
+        pre_insts = self._pre_instructions(pre, delay, retry, timeout, ignore_error)
         inst = MouseInstruction(tab_id=self.tab_id, action=action, element_name=self._element.name, simulate=simulate, x=x, y=y, delay=delay, retry=retry, timeout=timeout, ignore_error=ignore_error)
-        data = self._execute_instruction([wait_inst, inst], timeout=timeout * 2)
-        last = self._last_result(data)
-        return bool(last and last.get("success"))
+        instructions = pre_insts + [inst]
+        data = self._execute_instruction(instructions, timeout=timeout * 2)
+        return self._all_succeeded(data, instructions)
 
-    def keyboard(self, action: str, text: str = None, delay: int = 0, retry: int = 0, timeout: int = 0, ignore_error: bool = False) -> bool:
-        """执行键盘操作：press（单键）、type（输入文本）、keydown、keyup。text 在 press/keydown/keyup 时作为 key，在 type 时作为输入文本。"""
-        wait_inst = WaitInstruction(tab_id=self.tab_id, wait_type="wait_element_exists", element=self._element, delay=delay, retry=retry, timeout=timeout or 30)
+    def keyboard(self, action: str, text: str = None, delay: int = 0, retry: int = 0, timeout: int = 0, ignore_error: bool = False, pre: PreInstruction = PreInstruction.WAIT) -> bool:
+        """执行键盘操作：press（单键）、type（输入文本）、keydown、keyup。text 在 press/keydown/keyup 时作为 key，在 type 时作为输入文本。pre 可选 find_element 或 wait。"""
+        pre_insts = self._pre_instructions(pre, delay, retry, timeout, ignore_error)
         inst = KeyboardInstruction(tab_id=self.tab_id, action=action, key=text if action in ("press", "keydown", "keyup") else None, text=text if action == "type" else None, element_name=self._element.name, delay=delay, retry=retry, timeout=timeout, ignore_error=ignore_error)
-        data = self._execute_instruction([wait_inst, inst], timeout=timeout * 2)
-        last = self._last_result(data)
-        return bool(last and last.get("success"))
+        instructions = pre_insts + [inst]
+        data = self._execute_instruction(instructions, timeout=timeout * 2)
+        return self._all_succeeded(data, instructions)
 
-    def get_attribute(self, attribute: str, usage: str = None, delay: int = 0, retry: int = 0, timeout: int = 0, ignore_error: bool = False) -> str | None:
-        """获取当前元素的指定属性值。usage 可选 variable/data/none。"""
-        wait_inst = WaitInstruction(tab_id=self.tab_id, wait_type="wait_element_exists", element=self._element, delay=delay, retry=retry, timeout=timeout or 30)
+    def get_attribute(self, attribute: str, usage: str = None, delay: int = 0, retry: int = 0, timeout: int = 0, ignore_error: bool = False, pre: PreInstruction = PreInstruction.WAIT) -> str | None:
+        """获取当前元素的指定属性值。usage 可选 variable/data/none。pre 可选 find_element 或 wait。"""
+        pre_insts = self._pre_instructions(pre, delay, retry, timeout, ignore_error)
         inst = GetAttributeInstruction(tab_id=self.tab_id, element_name=self._element.name, attribute=attribute, usage=usage, delay=delay, retry=retry, timeout=timeout, ignore_error=ignore_error)
-        data = self._execute_instruction([wait_inst, inst], timeout=timeout * 2)
-        last = self._last_result(data)
-        return last.get("data", {}).get("value") if last and last.get("success") else None
+        instructions = pre_insts + [inst]
+        data = self._execute_instruction(instructions, timeout=timeout * 2)
+        if not self._all_succeeded(data, instructions):
+            return None
+        r = self._result_by_instruction_id(data, inst.instruction_id)
+        return r.get("data", {}).get("value") if r else None
 
-    def set_attribute(self, attribute: str, value: str, delay: int = 0, retry: int = 0, timeout: int = 0, ignore_error: bool = False) -> bool:
-        """设置当前元素的指定属性值。"""
-        wait_inst = WaitInstruction(tab_id=self.tab_id, wait_type="wait_element_exists", element=self._element, delay=delay, retry=retry, timeout=timeout or 30)
+    def set_attribute(self, attribute: str, value: str, delay: int = 0, retry: int = 0, timeout: int = 0, ignore_error: bool = False, pre: PreInstruction = PreInstruction.WAIT) -> bool:
+        """设置当前元素的指定属性值。pre 可选 find_element 或 wait。"""
+        pre_insts = self._pre_instructions(pre, delay, retry, timeout, ignore_error)
         inst = SetAttributeInstruction(tab_id=self.tab_id, element_name=self._element.name, attribute=attribute, value=value, delay=delay, retry=retry, timeout=timeout, ignore_error=ignore_error)
-        data = self._execute_instruction([wait_inst, inst], timeout=timeout * 2)
-        last = self._last_result(data)
-        return bool(last and last.get("success"))
+        instructions = pre_insts + [inst]
+        data = self._execute_instruction(instructions, timeout=timeout * 2)
+        return self._all_succeeded(data, instructions)
 
-    def screenshot(self, format: str = "png", quality: int = None, full_page: bool = False, delay: int = 0, retry: int = 0, timeout: int = 0, ignore_error: bool = False) -> str | None:
-        """对当前标签页截图（整页或可见区域），成功时返回截图的 base64 数据。"""
-        wait_inst = WaitInstruction(tab_id=self.tab_id, wait_type="wait_element_visible", element=self._element, delay=delay, retry=retry, timeout=timeout or 30)
+    def screenshot(self, format: str = "png", quality: int = None, full_page: bool = False, delay: int = 0, retry: int = 0, timeout: int = 0, ignore_error: bool = False, pre: PreInstruction = PreInstruction.WAIT) -> str | None:
+        """对当前标签页截图（整页或可见区域），成功时返回截图的 base64 数据。pre 可选 find_element 或 wait（wait 时使用 wait_element_visible）。"""
+        pre_insts = self._pre_instructions(pre, delay, retry, timeout, ignore_error)
         inst = ScreenshotInstruction(tab_id=self.tab_id, format=format, quality=quality, full_page=full_page, delay=delay, retry=retry, timeout=timeout, ignore_error=ignore_error)
-        data = self._execute_instruction([wait_inst, inst], timeout=timeout * 2)
-        last = self._last_result(data)
-        return last.get("data", {}).get("dataUrl") if last and last.get("success") else None
+        instructions = pre_insts + [inst]
+        data = self._execute_instruction(instructions, timeout=timeout * 2)
+        if not self._all_succeeded(data, instructions):
+            return None
+        r = self._result_by_instruction_id(data, inst.instruction_id)
+        return r.get("data", {}).get("dataUrl") if r else None
 

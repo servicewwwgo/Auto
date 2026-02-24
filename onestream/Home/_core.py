@@ -17,6 +17,7 @@ class HomePage(Page):
     BASE_URL = "https://app.onestream.live/"
 
     def __init__(self, **kwargs):
+        kwargs.pop("url", None)
         super().__init__(url=self.BASE_URL, **kwargs)
 
     def go(self) -> bool:
@@ -52,13 +53,10 @@ class HomePage(Page):
         if "onestream.live" not in (parsed.netloc or "").lower():
             return False
         path = (parsed.path or "/").rstrip("/") or "/"
-        return path == "/" or path.startswith("/login") is False
+        return path == "/"
 
     def has_page_elements(self) -> bool:
         """判断是否存在首页特有元素（如创建流按钮或社交平台按钮）。"""
-        from AutoPy.auto import get_element
-        create_btn = get_element(domain="onestream", page="Home", element="create_stream_button", browser=self._browser, node_name=self._node_name, domain_instance=self.domain, page_instance=self)
-        if create_btn.wait(wait_type="wait_element_exists", timeout=10):
-            return True
-        social = get_element(domain="onestream", page="Home", element="social_platforms_button", browser=self._browser, node_name=self._node_name, domain_instance=self.domain, page_instance=self)
-        return social.wait(wait_type="wait_element_exists", timeout=5)
+        from .create_stream_button import CreateStreamButton
+        create_btn = CreateStreamButton.instance(browser=self._browser, node_name=self._node_name, domain=self.domain, page=self)
+        return create_btn.wait(wait_type="wait_element_exists", timeout=30)

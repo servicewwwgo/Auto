@@ -40,5 +40,5 @@ class CheckPage(Page):
 
     def has_page_elements(self) -> bool:
         """判断是否存在 Check 页特有元素（当前仅依赖 URL，可在此补充页面元素检测）。"""
-        return True
+        raise NotImplementedError("CheckPage 不支持页面元素检测")
 

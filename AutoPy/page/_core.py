@@ -14,6 +14,25 @@ from ..domain import Domain
 class Page(ABC):
     """页面抽象基类，表示一个可导航的页面/路由。"""
 
+    _instances: dict[type["Page"], "Page"] = {}
+
+    @classmethod
+    def instance(
+        cls,
+        browser: Browser,
+        node_name: str,
+        domain: Domain,
+        url: str = None,
+        **kwargs
+    ) -> "Page":
+        """
+        获取当前类的单例实例。每个子类有独立的单例。
+        首次调用时使用传入参数创建实例，后续调用返回已缓存的实例。
+        """
+        if cls not in cls._instances:
+            cls._instances[cls] = cls(browser=browser, node_name=node_name, domain=domain, url=url, **kwargs)
+        return cls._instances[cls]
+
     def __init__(self, browser: Browser, node_name: str, domain: Domain, url: str = None, description: str = "", language: str = "en-US"):
         self._browser = browser
         self._node_name = node_name
@@ -52,6 +71,7 @@ class Page(ABC):
     def has_page_elements(self) -> bool:
         """判断是否存在页面特有元素，用于定位/确认当前页面。"""
         raise NotImplementedError
+
 
 class PopupPage(Page):
     """弹窗页面抽象基类，表示一个可导航的弹窗页面/路由。"""

@@ -20,6 +20,6 @@ class GoLiveButtonFinally(Element):
         self._element = ElementClass(
             tab_id=self.domain.tab_id,
             name="go_live_button_finally",
-            selector='div[aria-label="Go live"][tabindex="-1"]',
+            selector='div[aria-label="Go live" i][tabindex="-1"]',
             selectorType="css",
         )

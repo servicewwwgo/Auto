@@ -9,11 +9,10 @@ onestream.Destinations 页面
   social_account_input、stream_key_input、update_button。
 """
 
-from ._core import DestinationsPage
+from ._core import DestinationsPage, DisconnectAllSocialAccountPopupPage, DisconnectSocialAccountPopupPage
 from .account_search_input import AccountSearchInput
 from .add_social_platform import AddSocialPlatform
 from .choose_platform_combobox import ChoosePlatformCombobox
-from .choose_platform_container import ChoosePlatformContainer
 from .choose_platform_facebook_button import ChoosePlatformFacebookButton
 from .connect_button import ConnectButton
 from .custom_rtmp_button import CustomRtmpButton
@@ -31,10 +30,11 @@ from .update_button import UpdateButton
 
 __all__ = [
     "DestinationsPage",
+    "DisconnectAllSocialAccountPopupPage",
+    "DisconnectSocialAccountPopupPage",
     "AccountSearchInput",
     "AddSocialPlatform",
     "ChoosePlatformCombobox",
-    "ChoosePlatformContainer",
     "ChoosePlatformFacebookButton",
     "ConnectButton",
     "CustomRtmpButton",

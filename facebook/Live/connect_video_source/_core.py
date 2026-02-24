@@ -19,6 +19,6 @@ class ConnectVideoSource(Element):
         self._element = ElementClass(
             tab_id=self.domain.tab_id,
             name="connect_video_source",
-            selector='div[aria-label="Connect video source"]',
+            selector='div[aria-label="Connect video source" i]',
             selectorType="css",
         )

@@ -17,6 +17,7 @@ class LoginPage(Page):
     BASE_URL = "https://app.onestream.live/login/"
 
     def __init__(self, **kwargs):
+        kwargs.pop("url", None)
         super().__init__(url=self.BASE_URL, **kwargs)
 
     def go(self) -> bool:
@@ -53,6 +54,8 @@ class LoginPage(Page):
 
     def has_page_elements(self) -> bool:
         """判断是否存在登录页特有元素（如邮箱输入框）。"""
-        from AutoPy.auto import get_element
-        login_email = get_element(domain="onestream", page="Login", element="login_email_input", browser=self._browser, node_name=self._node_name, domain_instance=self.domain, page_instance=self)
+        from .login_email_input import LoginEmailInput
+        login_email = LoginEmailInput.instance(
+            browser=self._browser, node_name=self._node_name, domain=self.domain, page=self
+        )
         return login_email.wait(wait_type="wait_element_exists", timeout=15)

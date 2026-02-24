@@ -75,6 +75,10 @@ class Instruction(ABC):
         self.created_at = int(time.time() * 1000)
         self.params = params
 
+    @property
+    def instruction_id(self) -> str:
+        return self.instructionID
+
     def __str__(self) -> str:
         """将指令对象转换为 JSON 字符串。"""
         result = {

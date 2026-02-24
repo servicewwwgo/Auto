@@ -19,7 +19,6 @@ class VideoSelectButton(Element):
         self._element = ElementClass(
             tab_id=self.domain.tab_id,
             name="video_select_button",
-            selector="button",
+            selector='div[primarybuttontext="Select Video"] button',
             selectorType="css",
-            parentName="video_select_container",
         )

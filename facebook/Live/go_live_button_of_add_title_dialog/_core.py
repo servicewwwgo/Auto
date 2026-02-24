@@ -20,7 +20,6 @@ class GoLiveButtonOfAddTitleDialog(Element):
         self._element = ElementClass(
             tab_id=self.domain.tab_id,
             name="go_live_button_of_add_title_dialog",
-            selector='div[aria-label="Go live"]',
+            selector='div[aria-label="Add a title"][role="dialog"] div[aria-label="Go live" i]',
             selectorType="css",
-            parentName="add_title_dialog",
         )

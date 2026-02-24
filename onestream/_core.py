@@ -14,14 +14,15 @@ class OnestreamDomain(Domain):
     LOGIN_URL = "https://app.onestream.live/login/"
 
     def __init__(self, browser, node_name: str, **kwargs):
+        kwargs.pop("domain", None)  # 避免与显式 domain="onestream.live" 冲突
         super().__init__(
             browser,
             node_name,
             domain="onestream.live",
-            description="Onestream",
+            description=kwargs.pop("description", "Onestream"),
             language=kwargs.pop("language", "en-US"),
-            start_url=kwargs.pop("start_url", OnestreamDomain.HOME_URL),
+            start_url=kwargs.pop("start_url", self.HOME_URL),
             active=kwargs.pop("active", True),
-            new_window=kwargs.pop("new_window", False),
+            new_window=kwargs.pop("new_window", True),
             **kwargs,
         )

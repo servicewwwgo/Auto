@@ -19,7 +19,6 @@ class ChoosePlatformCombobox(Element):
         self._element = ElementClass(
             tab_id=self.domain.tab_id,
             name="choose_platform_combobox",
-            selector='div[aria-haspopup="listbox"]',
+            selector='#os-1112 div[aria-haspopup="listbox"]',
             selectorType="css",
-            parentName="choose_platform_container",
         )

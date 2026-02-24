@@ -8,8 +8,8 @@ import json
 from urllib.parse import urlparse
 
 from AutoPy import Page, Element
-from AutoPy.auto import get_element
 from AutoPy.cmd import GetUrlInstruction, Instructions, NavigateInstruction
+from AutoPy.error import LogicError
 
 
 class LiveSetupAndEligibilityCheckPage(Page):
@@ -22,15 +22,17 @@ class LiveSetupAndEligibilityCheckPage(Page):
 
     def go(self) -> bool:
         """导航到 Facebook 直播页（设置流程入口）。先跳转再检测是否加载完成。"""
+        from .live_video_button import LiveVideoButton
+        from .live_producer_homepage import LiveProducerHomepage
         # 点击 live_video_button 按钮
-        live_video_button: Element = get_element(domain="facebook", page="Live_Setup_and_Eligibility_Check_Page", element="live_video_button", browser=self._browser, node_name=self._node_name, domain_instance=self._domain, page_instance=self)
+        live_video_button: Element = LiveVideoButton.instance(browser=self._browser, node_name=self._node_name, domain=self._domain, page=self)
         if not live_video_button.mouse(action="click", simulate="simulated"):
-            raise Exception("导航到 Facebook 直播设置与资格检查页失败!")
+            raise LogicError("导航到 Facebook 直播设置与资格检查页失败!")
 
         # 等待直播设置与资格检查页加载完成
-        live_producer_homepage: Element = get_element(domain="facebook", page="Live_Setup_and_Eligibility_Check_Page", element="live_producer_homepage", browser=self._browser, node_name=self._node_name, domain_instance=self._domain, page_instance=self)
+        live_producer_homepage: Element = LiveProducerHomepage.instance(browser=self._browser, node_name=self._node_name, domain=self._domain, page=self)
         if not live_producer_homepage.wait(wait_type="wait_element_exists"):
-            raise Exception("直播设置与资格检查页加载失败, 请检查网络连接!")
+            raise LogicError("直播设置与资格检查页加载失败, 请检查网络连接!")
 
         return True
 
@@ -55,5 +57,6 @@ class LiveSetupAndEligibilityCheckPage(Page):
 
     def has_page_elements(self) -> bool:
         """判断是否存在直播设置与资格检查页特有元素（live_producer_homepage）。"""
-        live_producer_homepage: Element = get_element(domain="facebook", page="Live_Setup_and_Eligibility_Check_Page", element="live_producer_homepage", browser=self._browser, node_name=self._node_name, domain_instance=self._domain, page_instance=self)
+        from .live_producer_homepage import LiveProducerHomepage
+        live_producer_homepage: Element = LiveProducerHomepage.instance(browser=self._browser, node_name=self._node_name, domain=self._domain, page=self)
         return live_producer_homepage.find_element()

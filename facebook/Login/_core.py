@@ -8,7 +8,6 @@ import json
 from urllib.parse import urlparse
 
 from AutoPy import Page, Element
-from AutoPy.auto import get_element
 from AutoPy.cmd import GetUrlInstruction, Instructions
 
 
@@ -45,5 +44,6 @@ class LoginPage(Page):
 
     def has_page_elements(self) -> bool:
         """判断是否存在登录页特有元素（royal_login_button）。"""
-        royal_login_button: Element = get_element(domain="facebook", page="Login", element="royal_login_button", browser=self._browser, node_name=self._node_name, domain_instance=self._domain, page_instance=self)
+        from .royal_login_button import RoyalLoginButton
+        royal_login_button: Element = RoyalLoginButton.instance(browser=self._browser, node_name=self._node_name, domain=self._domain, page=self)
         return royal_login_button.find_element()

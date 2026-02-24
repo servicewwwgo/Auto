@@ -20,6 +20,6 @@ class GoLiveButtonWithoutCurrent(Element):
         self._element = ElementClass(
             tab_id=self.domain.tab_id,
             name="go_live_button_without_current",
-            selector='div[aria-label="Go live"]:not([aria-current])',
+            selector='div[aria-label="Go live" i]:not([aria-current])',
             selectorType="css",
         )

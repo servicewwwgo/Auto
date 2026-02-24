@@ -8,8 +8,8 @@ import json
 from urllib.parse import urlparse
 
 from AutoPy import Page, Element
-from AutoPy.auto import get_element
 from AutoPy.cmd import GetUrlInstruction, Instructions, NavigateInstruction
+from AutoPy.error import LogicError
 
 
 class LivePage(Page):
@@ -22,23 +22,25 @@ class LivePage(Page):
 
     def go(self) -> bool:
         """导航到 Facebook 直播页。"""
-        go_live_button: Element = get_element(domain="facebook", page="Live", element="go_live_button", browser=self._browser, node_name=self._node_name, domain_instance=self._domain, page_instance=self)
-        if go_live_button.mouse(action="click", simulate="simulated"):
-            return self.has_page_elements()
-        
-        go_live_button_duplicate_set_up_live_video : Element = get_element(domain="facebook", page="Live", element="go_live_button_duplicate_set_up_live_video", browser=self._browser, node_name=self._node_name, domain_instance=self._domain, page_instance=self)
-        if go_live_button_duplicate_set_up_live_video.mouse(action="click", simulate="simulated"):
-            return self.has_page_elements()
-        
-        go_live_button_duplicate_start_set_up: Element = get_element(domain="facebook", page="Live", element="go_live_button_duplicate_start_set_up", browser=self._browser, node_name=self._node_name, domain_instance=self._domain, page_instance=self)
-        if go_live_button_duplicate_start_set_up.mouse(action="click", simulate="simulated"):
-            return self.has_page_elements()
-        
-        go_live_button_duplicate_start_setup: Element = get_element(domain="facebook", page="Live", element="go_live_button_duplicate_start_setup", browser=self._browser, node_name=self._node_name, domain_instance=self._domain, page_instance=self)
-        if go_live_button_duplicate_start_setup.mouse(action="click", simulate="simulated"):
-            return self.has_page_elements()
+        from .go_live_button import (
+            GoLiveButton,
+            GoLiveButtonDuplicateSetUpLiveVideo,
+            GoLiveButtonDuplicateStartSetUp,
+            GoLiveButtonDuplicateStartSetup,
+        )
+        from AutoPy.element import PreInstruction
 
-        raise Exception("导航到 Facebook 直播页失败!")
+        go_live_button: Element = GoLiveButton.instance(browser=self._browser, node_name=self._node_name, domain=self._domain, page=self)
+        if not go_live_button.mouse(action="click", simulate="simulated", pre=PreInstruction.FIND_ELEMENT):
+            go_live_button_duplicate_set_up_live_video: Element = GoLiveButtonDuplicateSetUpLiveVideo.instance(browser=self._browser, node_name=self._node_name, domain=self._domain, page=self)
+            if not go_live_button_duplicate_set_up_live_video.mouse(action="click", simulate="simulated", pre=PreInstruction.FIND_ELEMENT):
+                go_live_button_duplicate_start_set_up: Element = GoLiveButtonDuplicateStartSetUp.instance(browser=self._browser, node_name=self._node_name, domain=self._domain, page=self)
+                if not go_live_button_duplicate_start_set_up.mouse(action="click", simulate="simulated", pre=PreInstruction.FIND_ELEMENT):
+                    go_live_button_duplicate_start_setup: Element = GoLiveButtonDuplicateStartSetup.instance(browser=self._browser, node_name=self._node_name, domain=self._domain, page=self)
+                    if not go_live_button_duplicate_start_setup.mouse(action="click", simulate="simulated", pre=PreInstruction.FIND_ELEMENT):
+                        raise LogicError("导航到 Facebook 直播页失败!")
+
+        return self.has_page_elements()
 
     def is_current_url(self) -> bool:
         """判断当前 URL 是否属于 Facebook 直播页（含 /live）。"""
@@ -61,8 +63,9 @@ class LivePage(Page):
 
     def has_page_elements(self) -> bool:
         """判断是否存在直播页特有元素（当前仅依赖 URL，可在此补充页面元素检测）。"""
-        connect_video_source: Element = get_element(domain="facebook", page="Live", element="connect_video_source", browser=self._browser, node_name=self._node_name, domain_instance=self._domain, page_instance=self)
+        from .connect_video_source import ConnectVideoSource
+        connect_video_source: Element = ConnectVideoSource.instance(browser=self._browser, node_name=self._node_name, domain=self._domain, page=self)
         if connect_video_source.wait(wait_type="wait_element_exists"):
             return True
 
-        raise Exception("直播页特有元素不存在!")
+        raise LogicError("直播页元素不存在!")

@@ -19,8 +19,7 @@ class SingleVideoButton(Element):
         self._element = ElementClass(
             tab_id=self.domain.tab_id,
             name="single_video_button",
-            selector="span",
+            selector="#os-3606 span",
             selectorType="text",
             text="Single Video",
-            parentName="single_video_button_container",
         )

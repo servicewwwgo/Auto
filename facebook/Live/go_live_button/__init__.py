@@ -4,6 +4,6 @@ facebook.Live_Setup_and_Eligibility_Check_Page.go_live_button 元素包
 提供 Element 子类：GoLiveButton。
 """
 
-from ._core import GoLiveButton
+from ._core import GoLiveButton, GoLiveButtonDuplicateSetUpLiveVideo, GoLiveButtonDuplicateStartSetUp, GoLiveButtonDuplicateStartSetup
 
-__all__ = ["GoLiveButton"]
+__all__ = ["GoLiveButton", "GoLiveButtonDuplicateSetUpLiveVideo", "GoLiveButtonDuplicateStartSetUp", "GoLiveButtonDuplicateStartSetup"]

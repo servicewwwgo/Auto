@@ -15,12 +15,13 @@ __version__ = "0.1.0"
 from .browser import Browser
 from .domain import Domain
 from .element import Element
-from .page import Page
+from .page import Page, PopupPage
 
 __all__ = [
     "__version__",
     "Browser",
     "Domain",
     "Page",
+    "PopupPage",
     "Element",
 ]

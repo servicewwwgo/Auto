@@ -17,6 +17,7 @@ class HomePage(Page):
     BASE_URL = "https://www.facebook.com/"
 
     def __init__(self, **kwargs):
+        kwargs.pop("url", None)
         super().__init__(url=self.BASE_URL, **kwargs)
 
     def go(self) -> bool:
@@ -56,4 +57,4 @@ class HomePage(Page):
 
     def has_page_elements(self) -> bool:
         """判断是否存在首页特有元素（当前仅依赖 URL，可在此补充页面元素检测）。"""
-        return True
+        raise NotImplementedError("HomePage 不支持页面元素检测")
