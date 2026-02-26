@@ -20,42 +20,6 @@ class GoLiveButton(Element):
         self._element = ElementClass(
             tab_id=self.domain.tab_id,
             name="go_live_button",
-            selector='div[aria-label="Go live"]', 
-            selectorType="css",
-        )
-
-class GoLiveButtonDuplicateSetUpLiveVideo(Element):
-    """Facebook 直播设置页 Go live 按钮（Set up live video 文案，duplicate）。"""
-
-    def __init__(self, browser: Browser, node_name: str, domain: Domain, page: Page, language: str = "en-US"):
-        super().__init__(browser=browser, node_name=node_name, domain=domain, page=page, description="Live_Setup_and_Eligibility_Check_Page.直播按钮 duplicate set up live video", language=language)
-        self._element = ElementClass(
-            tab_id=self.domain.tab_id,
-            name="go_live_button",
-            selector='div[aria-label="Set up live video"]',
-            selectorType="css",
-        )
-
-class GoLiveButtonDuplicateStartSetUp(Element):
-    """Facebook 直播设置页 Go live 按钮（Start set up 文案，duplicate）。"""
-
-    def __init__(self, browser: Browser, node_name: str, domain: Domain, page: Page, language: str = "en-US"):
-        super().__init__(browser=browser, node_name=node_name, domain=domain, page=page, description="Live_Setup_and_Eligibility_Check_Page.直播按钮 duplicate start set up", language=language)
-        self._element = ElementClass(
-            tab_id=self.domain.tab_id,
-            name="go_live_button",
-            selector='div[aria-label="Start set up"]',
-            selectorType="css",
-        )
-
-class GoLiveButtonDuplicateStartSetup(Element):
-    """Facebook 直播设置页 Go live 按钮（Start setup 文案，duplicate）。"""
-
-    def __init__(self, browser: Browser, node_name: str, domain: Domain, page: Page, language: str = "en-US"):
-        super().__init__(browser=browser, node_name=node_name, domain=domain, page=page, description="Live_Setup_and_Eligibility_Check_Page.直播按钮 duplicate start setup", language=language)
-        self._element = ElementClass(
-            tab_id=self.domain.tab_id,
-            name="go_live_button",
-            selector='div[aria-label="Start setup"]',
+            selector='div[aria-label="Go live" i], div[aria-label="Set up live video" i], div[aria-label="Start setup" i], div[aria-label="Start set up" i]', 
             selectorType="css",
         )

@@ -53,17 +53,18 @@ class Domain:
     _execute_cdp_command 一致的语义（create_tab 返回 tabId，list_targets 返回标签列表等）。
     """
 
-    _instances: dict[type["Domain"], "Domain"] = {}
+    _instances: dict[tuple, "Domain"] = {}
 
     @classmethod
     def instance(cls, browser: Browser, node_name: str, **kwargs) -> "Domain":
         """
-        获取当前类的单例实例。每个子类有独立的单例。
-        首次调用时使用传入参数创建实例，后续调用返回已缓存的实例。
+        获取当前类的单例实例。按 (类, browser 实例, node_name) 区分，避免多任务时复用错误节点。
+        首次调用时使用传入参数创建实例，后续同一次任务内相同节点返回已缓存的实例。
         """
-        if cls not in cls._instances:
-            cls._instances[cls] = cls(browser=browser, node_name=node_name, **kwargs)
-        return cls._instances[cls]
+        key = (cls, id(browser), node_name)
+        if key not in cls._instances:
+            cls._instances[key] = cls(browser=browser, node_name=node_name, **kwargs)
+        return cls._instances[key]
 
     def __init__(self, browser: Browser, node_name: str, description: str = "", language: str = "en-US", start_url: str = None, active: bool = True, new_window: bool = False, domain: str = None):
         self._browser = browser

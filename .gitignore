@@ -58,3 +58,4 @@ logs/
 # Build artifacts
 *.manifest
 *.spec
+*.xlsx

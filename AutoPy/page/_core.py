@@ -14,7 +14,7 @@ from ..domain import Domain
 class Page(ABC):
     """页面抽象基类，表示一个可导航的页面/路由。"""
 
-    _instances: dict[type["Page"], "Page"] = {}
+    _instances: dict[tuple, "Page"] = {}
 
     @classmethod
     def instance(
@@ -26,12 +26,13 @@ class Page(ABC):
         **kwargs
     ) -> "Page":
         """
-        获取当前类的单例实例。每个子类有独立的单例。
-        首次调用时使用传入参数创建实例，后续调用返回已缓存的实例。
+        获取当前类的单例实例。按 (类, domain 实例) 区分，避免多任务时复用错误节点。
+        首次调用时使用传入参数创建实例，后续同一次任务内相同 domain 返回已缓存的实例。
         """
-        if cls not in cls._instances:
-            cls._instances[cls] = cls(browser=browser, node_name=node_name, domain=domain, url=url, **kwargs)
-        return cls._instances[cls]
+        key = (cls, id(domain))
+        if key not in cls._instances:
+            cls._instances[key] = cls(browser=browser, node_name=node_name, domain=domain, url=url, **kwargs)
+        return cls._instances[key]
 
     def __init__(self, browser: Browser, node_name: str, domain: Domain, url: str = None, description: str = "", language: str = "en-US"):
         self._browser = browser

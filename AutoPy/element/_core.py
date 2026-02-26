@@ -27,7 +27,7 @@ class PreInstruction(Enum):
 class Element(ABC):
     """页面元素抽象：封装元素描述与指令执行，通过 Browser 发送指令到节点并解析 results。"""
 
-    _instances: dict[type["Element"], "Element"] = {}
+    _instances: dict[tuple, "Element"] = {}
 
     @classmethod
     def instance(
@@ -39,12 +39,13 @@ class Element(ABC):
         **kwargs
     ) -> "Element":
         """
-        获取当前类的单例实例。每个子类有独立的单例。
-        首次调用时使用传入参数创建实例，后续调用返回已缓存的实例。
+        获取当前类的单例实例。按 (类, page 实例, 区分用 kwargs) 区分，避免多任务时复用错误节点。
+        首次调用时使用传入参数创建实例，后续同一次任务内相同 page 与参数返回已缓存的实例。
         """
-        if cls not in cls._instances:
-            cls._instances[cls] = cls(browser=browser, node_name=node_name, domain=domain, page=page, **kwargs)
-        return cls._instances[cls]
+        key = (cls, id(page), tuple(sorted((k, v) for k, v in kwargs.items())))
+        if key not in cls._instances:
+            cls._instances[key] = cls(browser=browser, node_name=node_name, domain=domain, page=page, **kwargs)
+        return cls._instances[key]
 
     def __init__(self, browser: Browser, node_name: str, domain: Domain, page: Page, description: str = "", language: str = "en-US"):
         self._browser = browser
@@ -121,13 +122,13 @@ class Element(ABC):
     def find_element(self, delay: int = 0, retry: int = 0, timeout: int = 180, ignore_error: bool = False) -> bool:
         """在当前标签页中按 self._element 描述定位元素，成功返回 True。"""
         inst = FindElementInstruction(tab_id=self.tab_id, element=self._element, delay=delay, retry=retry, timeout=timeout, ignore_error=ignore_error)
-        data = self._execute_instruction([inst], timeout=timeout)
+        data = self._execute_instruction([inst], timeout=timeout + 30)
         return self._all_succeeded(data, [inst])
 
     def wait(self, wait_type: str, title_text: str = None, attribute: str = None, attribute_text: str = None, delay: int = 0, retry: int = 0, timeout: int = 180, ignore_error: bool = False) -> bool:
         """等待指定条件（标题、元素存在/可见、属性包含文本等）。"""
         inst = WaitInstruction(tab_id=self.tab_id, wait_type=wait_type, title_text=title_text, element=self._element, attribute=attribute, attribute_text=attribute_text, delay=delay, retry=retry, timeout=timeout, ignore_error=ignore_error)
-        data = self._execute_instruction([inst], timeout=timeout)
+        data = self._execute_instruction([inst], timeout=timeout + 30)
         return self._all_succeeded(data, [inst])
 
     def input(self, text: str, clear: bool = False, delay: int = 0, retry: int = 0, timeout: int = 30, ignore_error: bool = False, pre: PreInstruction = PreInstruction.WAIT) -> bool:
@@ -135,7 +136,7 @@ class Element(ABC):
         pre_insts = self._pre_instructions(pre, delay, retry, timeout, ignore_error)
         inst = InputInstruction(tab_id=self.tab_id, element_name=self._element.name, text=text, clear=clear, delay=delay, retry=retry, timeout=timeout, ignore_error=ignore_error)
         instructions = pre_insts + [inst]
-        data = self._execute_instruction(instructions, timeout=timeout * 2)
+        data = self._execute_instruction(instructions, timeout=timeout + 30)
         return self._all_succeeded(data, instructions)
 
     def mouse(self, action: str, simulate: str = "none", x: int = None, y: int = None, delay: int = 0, retry: int = 0, timeout: int = 0, ignore_error: bool = False, pre: PreInstruction = PreInstruction.WAIT) -> bool:
@@ -143,7 +144,7 @@ class Element(ABC):
         pre_insts = self._pre_instructions(pre, delay, retry, timeout, ignore_error)
         inst = MouseInstruction(tab_id=self.tab_id, action=action, element_name=self._element.name, simulate=simulate, x=x, y=y, delay=delay, retry=retry, timeout=timeout, ignore_error=ignore_error)
         instructions = pre_insts + [inst]
-        data = self._execute_instruction(instructions, timeout=timeout * 2)
+        data = self._execute_instruction(instructions, timeout=timeout + 30)
         return self._all_succeeded(data, instructions)
 
     def keyboard(self, action: str, text: str = None, delay: int = 0, retry: int = 0, timeout: int = 0, ignore_error: bool = False, pre: PreInstruction = PreInstruction.WAIT) -> bool:
@@ -151,7 +152,7 @@ class Element(ABC):
         pre_insts = self._pre_instructions(pre, delay, retry, timeout, ignore_error)
         inst = KeyboardInstruction(tab_id=self.tab_id, action=action, key=text if action in ("press", "keydown", "keyup") else None, text=text if action == "type" else None, element_name=self._element.name, delay=delay, retry=retry, timeout=timeout, ignore_error=ignore_error)
         instructions = pre_insts + [inst]
-        data = self._execute_instruction(instructions, timeout=timeout * 2)
+        data = self._execute_instruction(instructions, timeout=timeout + 30)
         return self._all_succeeded(data, instructions)
 
     def get_attribute(self, attribute: str, usage: str = None, delay: int = 0, retry: int = 0, timeout: int = 0, ignore_error: bool = False, pre: PreInstruction = PreInstruction.WAIT) -> str | None:
@@ -159,7 +160,7 @@ class Element(ABC):
         pre_insts = self._pre_instructions(pre, delay, retry, timeout, ignore_error)
         inst = GetAttributeInstruction(tab_id=self.tab_id, element_name=self._element.name, attribute=attribute, usage=usage, delay=delay, retry=retry, timeout=timeout, ignore_error=ignore_error)
         instructions = pre_insts + [inst]
-        data = self._execute_instruction(instructions, timeout=timeout * 2)
+        data = self._execute_instruction(instructions, timeout=timeout + 30)
         if not self._all_succeeded(data, instructions):
             return None
         r = self._result_by_instruction_id(data, inst.instruction_id)
@@ -170,7 +171,7 @@ class Element(ABC):
         pre_insts = self._pre_instructions(pre, delay, retry, timeout, ignore_error)
         inst = SetAttributeInstruction(tab_id=self.tab_id, element_name=self._element.name, attribute=attribute, value=value, delay=delay, retry=retry, timeout=timeout, ignore_error=ignore_error)
         instructions = pre_insts + [inst]
-        data = self._execute_instruction(instructions, timeout=timeout * 2)
+        data = self._execute_instruction(instructions, timeout=timeout + 30)
         return self._all_succeeded(data, instructions)
 
     def screenshot(self, format: str = "png", quality: int = None, full_page: bool = False, delay: int = 0, retry: int = 0, timeout: int = 0, ignore_error: bool = False, pre: PreInstruction = PreInstruction.WAIT) -> str | None:
@@ -178,7 +179,7 @@ class Element(ABC):
         pre_insts = self._pre_instructions(pre, delay, retry, timeout, ignore_error)
         inst = ScreenshotInstruction(tab_id=self.tab_id, format=format, quality=quality, full_page=full_page, delay=delay, retry=retry, timeout=timeout, ignore_error=ignore_error)
         instructions = pre_insts + [inst]
-        data = self._execute_instruction(instructions, timeout=timeout * 2)
+        data = self._execute_instruction(instructions, timeout=timeout + 30)
         if not self._all_succeeded(data, instructions):
             return None
         r = self._result_by_instruction_id(data, inst.instruction_id)

@@ -24,21 +24,12 @@ class LivePage(Page):
         """导航到 Facebook 直播页。"""
         from .go_live_button import (
             GoLiveButton,
-            GoLiveButtonDuplicateSetUpLiveVideo,
-            GoLiveButtonDuplicateStartSetUp,
-            GoLiveButtonDuplicateStartSetup,
         )
         from AutoPy.element import PreInstruction
 
         go_live_button: Element = GoLiveButton.instance(browser=self._browser, node_name=self._node_name, domain=self._domain, page=self)
         if not go_live_button.mouse(action="click", simulate="simulated", pre=PreInstruction.FIND_ELEMENT):
-            go_live_button_duplicate_set_up_live_video: Element = GoLiveButtonDuplicateSetUpLiveVideo.instance(browser=self._browser, node_name=self._node_name, domain=self._domain, page=self)
-            if not go_live_button_duplicate_set_up_live_video.mouse(action="click", simulate="simulated", pre=PreInstruction.FIND_ELEMENT):
-                go_live_button_duplicate_start_set_up: Element = GoLiveButtonDuplicateStartSetUp.instance(browser=self._browser, node_name=self._node_name, domain=self._domain, page=self)
-                if not go_live_button_duplicate_start_set_up.mouse(action="click", simulate="simulated", pre=PreInstruction.FIND_ELEMENT):
-                    go_live_button_duplicate_start_setup: Element = GoLiveButtonDuplicateStartSetup.instance(browser=self._browser, node_name=self._node_name, domain=self._domain, page=self)
-                    if not go_live_button_duplicate_start_setup.mouse(action="click", simulate="simulated", pre=PreInstruction.FIND_ELEMENT):
-                        raise LogicError("导航到 Facebook 直播页失败!")
+            raise LogicError("导航到 Facebook 直播页失败!")
 
         return self.has_page_elements()
 

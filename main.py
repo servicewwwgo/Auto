@@ -4,14 +4,27 @@ import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
 from typing import List
 
 import pandas as pd
 
 from AutoPy import Browser, Domain
+from AutoPy.bit import bit_browser_open, bit_browser_close
 from AutoPy.error import LogicError
 from AutoPy.page import Page, PopupPage
 from AutoPy.element import Element
+
+
+def append_log(log_file: str, level: str, message: str, encoding: str = "utf-8") -> None:
+    """将一行日志追加写入文件，格式：[YYYY-MM-DD HH:MM:SS.mmm] [LEVEL] message"""
+    try:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        line = f"[{timestamp}] [{level}] {message}\n"
+        with open(log_file, "a", encoding=encoding) as f:
+            f.write(line)
+    except Exception as e:
+        print(f"[append_log] 写入日志失败: {e}", flush=True)
 
 def login_onestream_step(browser: Browser, node_name: str, onestream_account: str = None, onestream_password: str = None) -> bool:
     """
@@ -390,7 +403,7 @@ def go_live_streamm_step(browser: Browser, node_facebook: str, node_onestream: s
     update_btn: Element = UpdateButton(browser=browser, node_name=node_onestream, domain=onestream_domain, page=dest_page)
     if not update_btn.mouse(action="click"):
         raise LogicError("Onestream 更新按钮点击失败")
-    time.sleep(7)
+    time.sleep(5)
 
     # 删除社交平台账号 - 延迟任务（46 分钟后执行）
     try:
@@ -487,7 +500,7 @@ def go_live_streamm_step(browser: Browser, node_facebook: str, node_onestream: s
     )
 
     enabled_btn: Element = EnabledButton(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
-    has_enabled = enabled_btn.wait(wait_type="wait_element_visible", timeout=10, ignore_error=True)
+    has_enabled = enabled_btn.find_element()
 
     if has_enabled:
         feeling_btn: Element = FeelingActivityButton(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
@@ -501,7 +514,7 @@ def go_live_streamm_step(browser: Browser, node_facebook: str, node_onestream: s
         time.sleep(1.7)
 
         create_post_display: Element = CreatePostDisplay(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
-        if not create_post_display.wait(wait_type="wait_element_visible", timeout=10, ignore_error=True):
+        if not create_post_display.wait(wait_type="wait_element_visible", timeout=60, ignore_error=True):
             raise LogicError("创建贴文显示不可用, 请检查创建贴文显示状态")
 
         if post_title:
@@ -611,6 +624,8 @@ def main(
     error_rows = []
     error_file_path = './error.xlsx'
     error_lock = threading.Lock()
+    log_lock = threading.Lock()
+    log_file_path = "auto.log"
     max_workers = thread if thread and thread > 0 else 1
 
     def append_error_and_write(row_dict: dict) -> None:
@@ -635,6 +650,9 @@ def main(
 
         browser = Browser(node_api_base_url=node_api_base_url, auth_token=auth_token, node_name=node_onestream, timeout=180)
         try:
+            # 打开 Facebook 节点 Bit 浏览器（时机参考 autojs：流程开始前）
+            bit_browser_open(browser=browser, node_name=node_onestream, browser_seq=int(node_facebook), args=[], queue=True, timeout=180)
+
             go_live_streamm_step(
                 browser=browser,
                 node_facebook=node_facebook,
@@ -649,9 +667,21 @@ def main(
                 auth_token=auth_token,
             )
             result = {'row_index': index, 'success': True, 'result': 'ok'}
+            with log_lock:
+                append_log(log_file_path, "INFO", f"{node_facebook} {video_name} {live_social_account} {result}")
         except Exception as e:
+            row_dict['error'] = str(e)
             append_error_and_write(row_dict)
             result = {'row_index': index, 'success': False, 'result': str(e)}
+            with log_lock:
+                append_log(log_file_path, "ERROR", f"{node_facebook} {video_name} {live_social_account} {result}")
+        finally:
+            # 关闭 Facebook 节点 Bit 浏览器（时机参考 autojs：单行任务结束后）
+            try:
+                time.sleep(5)
+                bit_browser_close(browser=browser, node_name=node_onestream, browser_seq=int(node_facebook), timeout=180)
+            except Exception:
+                pass
         results.append(result)
         return result
 
