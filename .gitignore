@@ -53,6 +53,7 @@ secrets/
 
 # Logs
 *.log
+log.txt
 logs/
 
 # Build artifacts

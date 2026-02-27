@@ -120,7 +120,7 @@ class Browser:
         node_config = node_list[0]
         node_id = node_config.get("node_id")
         if not node_id:
-            raise NetworkError(f"获取节点配置: 节点名称 '{node_name}', 节点可能不在线")
+            raise ParseError(f"获取节点配置: 节点名称 '{node_name}', 节点可能不在线")
 
         self.node_id_map[node_name] = node_id
         return node_id
@@ -148,12 +148,12 @@ class Browser:
             response.raise_for_status()
             _log.debug(f"请求响应成功 type={request.type} id={request.id} response={response.text}")
         except requests.exceptions.Timeout as e:
-            raise NetworkError(f"执行请求: {request.type} 失败, 超时: {timeout} 秒, 错误: {e}")
+            raise NetworkError(f"网络错误: {request.type} 失败, 超时: {timeout} 秒, 错误: {e}")
         except requests.exceptions.ConnectionError as e:
-            raise NetworkError(f"执行请求: {request.type} 失败, 无法连接服务器, 错误: {e}")
+            raise NetworkError(f"网络错误: {request.type} 失败, 无法连接服务器, 错误: {e}")
         except requests.exceptions.HTTPError as e:
-            raise NetworkError(f"执行请求: {request.type} 失败, HTTP 状态码: {response.status_code}, 错误: {e}")
+            raise NetworkError(f"网络错误: {request.type} 失败, HTTP 状态码: {response.status_code}, 错误: {e}")
         except requests.exceptions.RequestException as e:
-            raise NetworkError(f"执行请求: {request.type} 失败, 错误: {e}")
+            raise NetworkError(f"网络错误: {request.type} 失败, 错误: {e}")
 
         return response

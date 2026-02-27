@@ -20,6 +20,6 @@ class LiveProducerHomepage(Element):
         self._element = ElementClass(
             tab_id=self.domain.tab_id,
             name="live_producer_homepage",
-            selector='div[aria-label^="Live Producer homepage"]',
+            selector='div[aria-label^="Live Producer homepage" i]',
             selectorType="css",
         )

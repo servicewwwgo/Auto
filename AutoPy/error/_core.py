@@ -22,7 +22,8 @@ class AutoPyError(Exception):
 
 class NetworkError(AutoPyError):
     """网络相关错误：请求失败、超时、连接异常等。"""
-
+    def __init__(self, message: str = "", *args, **kwargs):
+        super().__init__("重启任务, " + message or self.__doc__ or "", *args, **kwargs)
 
 class ParseError(AutoPyError):
     """解析相关错误：HTML/JSON/文本解析失败等。"""
@@ -30,6 +31,11 @@ class ParseError(AutoPyError):
 
 class LogicError(AutoPyError):
     """业务/流程逻辑错误：状态不符、前置条件不满足等。"""
+    def __init__(self, message: str = "", *args, **kwargs):
+        retry_task = kwargs.pop("retry_task", True)
+        if retry_task:
+            message = "重启任务, " + message or self.__doc__ or ""
+        super().__init__(message, *args, **kwargs)
 
 
 class LoginError(AutoPyError):

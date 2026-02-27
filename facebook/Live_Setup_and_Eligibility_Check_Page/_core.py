@@ -27,12 +27,17 @@ class LiveSetupAndEligibilityCheckPage(Page):
         # 点击 live_video_button 按钮
         live_video_button: Element = LiveVideoButton.instance(browser=self._browser, node_name=self._node_name, domain=self._domain, page=self)
         if not live_video_button.mouse(action="click", simulate="simulated"):
-            raise LogicError("导航到 Facebook 直播设置与资格检查页失败!")
+            raise LogicError("点击首页直播按钮失败!")
 
         # 等待直播设置与资格检查页加载完成
         live_producer_homepage: Element = LiveProducerHomepage.instance(browser=self._browser, node_name=self._node_name, domain=self._domain, page=self)
         if not live_producer_homepage.wait(wait_type="wait_element_exists"):
-            raise LogicError("直播设置与资格检查页加载失败, 请检查网络连接!")
+            raise LogicError("点击首页直播按钮失败!")
+
+        from .disable_element import DisableElement
+        disable_element: Element = DisableElement.instance(browser=self._browser, node_name=self._node_name, domain=self._domain, page=self)
+        if disable_element.find_element():
+            raise LogicError("不满足直播条件!", retry_task=False)
 
         return True
 

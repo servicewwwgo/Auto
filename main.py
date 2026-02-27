@@ -289,275 +289,294 @@ def go_live_streamm_step(browser: Browser, node_facebook: str, node_onestream: s
     """
     按顺序执行：live_stream（Facebook 获取 stream_key）→ create_social_account_stream_key（Onestream 创建社交账号并填密钥）→ create_video_stream（Onestream 创建视频流）→ go_live（Facebook 开播）。
     """
-    # ---------- 步骤 1: live_stream_step ----------
-    if not live_social_account or not video_name:
-        raise LogicError("请提供 live_social_account 与 video_name")
 
-    from facebook import FacebookDomain
-    from facebook.Check import CheckPage
-    from facebook.Login import LoginPage as FacebookLoginPage
-    from facebook.Home import HomePage as FacebookHomePage
-    from facebook.Live_Setup_and_Eligibility_Check_Page import LiveSetupAndEligibilityCheckPage
-    from facebook.Live import (
-        LivePage,
-        StreamingSoftwareButton,
-        StreamKeyInput,
-    )
+    wait_close_facebook_domain : FacebookDomain = None
+    wait_close_onestream_domain : OnestreamDomain = None
 
-    fb_domain = FacebookDomain(browser=browser, node_name=node_facebook)
-
-    check_page: Page = CheckPage(browser=browser, node_name=node_facebook, domain=fb_domain)
-    if check_page.is_current_url():
-        raise LogicError("账户状态错误, 请先解决账户状态问题!")
-
-    login_page: Page = FacebookLoginPage(browser=browser, node_name=node_facebook, domain=fb_domain)
-    if login_page.is_current_url():
-        raise LogicError("登录按钮存在, 请先登录!")
-
-    home_page: Page = FacebookHomePage(browser=browser, node_name=node_facebook, domain=fb_domain)
-    if not home_page.is_current_url():
-        home_page.go()
-
-    live_setup_and_eligibility_check_page: Page = LiveSetupAndEligibilityCheckPage(browser=browser, node_name=node_facebook, domain=fb_domain)
-    if not live_setup_and_eligibility_check_page.go():
-        raise LogicError("直播设置和资格检查页打开失败")
-
-    live_page: Page = LivePage(browser=browser, node_name=node_facebook, domain=fb_domain)
-    if not live_page.go():
-        raise LogicError("直播页打开失败")
-
-    streaming_software_button: Element = StreamingSoftwareButton(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
-    if not streaming_software_button.mouse(action="click", simulate="simulated"):
-        raise LogicError("streaming software button 点击失败")
-
-    time.sleep(0.7)
-
-    stream_key_input: Element = StreamKeyInput(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
-    stream_key = stream_key_input.get_attribute("value")
-    if stream_key is None or stream_key == "":
-        raise LogicError("stream_key_input 的 value 为空")
-    time.sleep(0.3)
-
-    # ---------- 步骤 2: create_social_account_stream_key_step ----------
-    from onestream import OnestreamDomain
-    from onestream.Destinations import (
-        DestinationsPage,
-        AddSocialPlatform,
-        CustomRtmpButton,
-        ChoosePlatformCombobox,
-        ChoosePlatformFacebookButton,
-        ServerUrlRightArrowButton,
-        ServerFacebookUrlInput,
-        SocialAccountInput,
-        StreamKeyInput as OnestreamStreamKeyInput,
-        UpdateButton,
-    )
-
-    onestream_domain = OnestreamDomain(browser=browser, node_name=node_onestream)
-
-    dest_page: Page = DestinationsPage(browser=browser, node_name=node_onestream, domain=onestream_domain)
-    if not dest_page.go():
-        raise LogicError("Onestream 社交平台页打开失败")
-    time.sleep(0.7)
-
-    add_platform: Element = AddSocialPlatform(browser=browser, node_name=node_onestream, domain=onestream_domain, page=dest_page)
-    if not add_platform.mouse(action="click"):
-        raise LogicError("Onestream 添加社交平台按钮点击失败")
-    time.sleep(0.7)
-
-    custom_rtmp: Element = CustomRtmpButton(browser=browser, node_name=node_onestream, domain=onestream_domain, page=dest_page)
-    if not custom_rtmp.mouse(action="click"):
-        raise LogicError("Onestream 自定义 RTMP 按钮点击失败")
-    time.sleep(0.2)
-
-    choose_combobox: Element = ChoosePlatformCombobox(browser=browser, node_name=node_onestream, domain=onestream_domain, page=dest_page)
-    if not choose_combobox.mouse(action="click"):
-        raise LogicError("Onestream 选择平台下拉框按钮点击失败")
-    time.sleep(0.7)
-
-    fb_btn: Element = ChoosePlatformFacebookButton(browser=browser, node_name=node_onestream, domain=onestream_domain, page=dest_page)
-    if not fb_btn.mouse(action="click"):
-        raise LogicError("Onestream 选择 Facebook 按钮点击失败")
-    time.sleep(0.7)
-
-    arrow_btn: Element = ServerUrlRightArrowButton(browser=browser, node_name=node_onestream, domain=onestream_domain, page=dest_page)
-    if not arrow_btn.mouse(action="click"):
-        raise LogicError("Onestream 服务器 URL 右箭头按钮点击失败")
-    time.sleep(0.7)
-
-    server_input: Element = ServerFacebookUrlInput(browser=browser, node_name=node_onestream, domain=onestream_domain, page=dest_page)
-    if not server_input.mouse(action="click"):
-        raise LogicError("Onestream 服务器 URL 输入框点击失败")
-    time.sleep(0.7)
-
-    social_input: Element = SocialAccountInput(browser=browser, node_name=node_onestream, domain=onestream_domain, page=dest_page)
-    if not social_input.input(text=live_social_account, clear=True):
-        raise LogicError("Onestream 社交平台账号输入失败")
-    time.sleep(0.1)
-
-    stream_key_el: Element = OnestreamStreamKeyInput(browser=browser, node_name=node_onestream, domain=onestream_domain, page=dest_page)
-    if not stream_key_el.input(text=stream_key, clear=True):
-        raise LogicError("Onestream 直播密钥输入失败")
-    time.sleep(0.1)
-
-    update_btn: Element = UpdateButton(browser=browser, node_name=node_onestream, domain=onestream_domain, page=dest_page)
-    if not update_btn.mouse(action="click"):
-        raise LogicError("Onestream 更新按钮点击失败")
-    time.sleep(5)
-
-    # 删除社交平台账号 - 延迟任务（46 分钟后执行）
     try:
-        enqueue_delayed_delete(
-            onestream_account=onestream_account,
-            onestream_password=onestream_password,
-            live_social_account=live_social_account,
-            node_name_onestream=node_onestream,
-            node_api_base_url=node_api_base_url,
-            auth_token=auth_token,
+
+        # ---------- 步骤 1: live_stream_step ----------
+        if not live_social_account or not video_name:
+            raise LogicError("请提供 live_social_account 与 video_name")
+
+        from facebook import FacebookDomain
+        from facebook.Check import CheckPage
+        from facebook.Login import LoginPage as FacebookLoginPage
+        from facebook.Home import HomePage as FacebookHomePage
+        from facebook.Live_Setup_and_Eligibility_Check_Page import LiveSetupAndEligibilityCheckPage
+        from facebook.Live import (
+            LivePage,
+            StreamingSoftwareButton,
+            StreamKeyInput,
         )
+
+        fb_domain = FacebookDomain(browser=browser, node_name=node_facebook)
+        wait_close_facebook_domain = fb_domain
+
+        fb_domain.close_all_tabs()
+
+        check_page: Page = CheckPage(browser=browser, node_name=node_facebook, domain=fb_domain)
+        if check_page.is_current_url():
+            raise LogicError("账户状态错误, 请先解决账户状态问题!")
+
+        login_page: Page = FacebookLoginPage(browser=browser, node_name=node_facebook, domain=fb_domain)
+        if login_page.is_current_url():
+            raise LogicError("登录按钮存在, 请先登录!")
+
+        home_page: Page = FacebookHomePage(browser=browser, node_name=node_facebook, domain=fb_domain)
+        if not home_page.is_current_url():
+            home_page.go()
+
+        live_setup_and_eligibility_check_page: Page = LiveSetupAndEligibilityCheckPage(browser=browser, node_name=node_facebook, domain=fb_domain)
+        if not live_setup_and_eligibility_check_page.go():
+            raise LogicError("直播设置和资格检查页打开失败")
+
+        live_page: Page = LivePage(browser=browser, node_name=node_facebook, domain=fb_domain)
+        if not live_page.go():
+            raise LogicError("直播页打开失败")
+
+        streaming_software_button: Element = StreamingSoftwareButton(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
+        if not streaming_software_button.mouse(action="click", simulate="simulated"):
+            raise LogicError("streaming software button 点击失败")
+
+        time.sleep(0.7)
+
+        stream_key_input: Element = StreamKeyInput(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
+        stream_key = stream_key_input.get_attribute("value")
+        if stream_key is None or stream_key == "":
+            raise LogicError("stream_key_input 的 value 为空")
+        time.sleep(0.3)
+
+        # ---------- 步骤 2: create_social_account_stream_key_step ----------
+        from onestream import OnestreamDomain
+        from onestream.Destinations import (
+            DestinationsPage,
+            AddSocialPlatform,
+            CustomRtmpButton,
+            ChoosePlatformCombobox,
+            ChoosePlatformFacebookButton,
+            ServerUrlRightArrowButton,
+            ServerFacebookUrlInput,
+            SocialAccountInput,
+            StreamKeyInput as OnestreamStreamKeyInput,
+            UpdateButton,
+        )
+
+        onestream_domain = OnestreamDomain(browser=browser, node_name=node_onestream)
+        wait_close_onestream_domain = onestream_domain
+
+        dest_page: Page = DestinationsPage(browser=browser, node_name=node_onestream, domain=onestream_domain)
+        if not dest_page.go():
+            raise LogicError("Onestream 社交平台页打开失败")
+        time.sleep(0.7)
+
+        add_platform: Element = AddSocialPlatform(browser=browser, node_name=node_onestream, domain=onestream_domain, page=dest_page)
+        if not add_platform.mouse(action="click"):
+            raise LogicError("Onestream 添加社交平台按钮点击失败")
+        time.sleep(0.7)
+
+        custom_rtmp: Element = CustomRtmpButton(browser=browser, node_name=node_onestream, domain=onestream_domain, page=dest_page)
+        if not custom_rtmp.mouse(action="click"):
+            raise LogicError("Onestream 自定义 RTMP 按钮点击失败")
+        time.sleep(0.2)
+
+        choose_combobox: Element = ChoosePlatformCombobox(browser=browser, node_name=node_onestream, domain=onestream_domain, page=dest_page)
+        if not choose_combobox.mouse(action="click"):
+            raise LogicError("Onestream 选择平台下拉框按钮点击失败")
+        time.sleep(0.7)
+
+        fb_btn: Element = ChoosePlatformFacebookButton(browser=browser, node_name=node_onestream, domain=onestream_domain, page=dest_page)
+        if not fb_btn.mouse(action="click"):
+            raise LogicError("Onestream 选择 Facebook 按钮点击失败")
+        time.sleep(0.7)
+
+        arrow_btn: Element = ServerUrlRightArrowButton(browser=browser, node_name=node_onestream, domain=onestream_domain, page=dest_page)
+        if not arrow_btn.mouse(action="click"):
+            raise LogicError("Onestream 服务器 URL 右箭头按钮点击失败")
+        time.sleep(0.7)
+
+        server_input: Element = ServerFacebookUrlInput(browser=browser, node_name=node_onestream, domain=onestream_domain, page=dest_page)
+        if not server_input.mouse(action="click"):
+            raise LogicError("Onestream 服务器 URL 输入框点击失败")
+        time.sleep(0.7)
+
+        social_input: Element = SocialAccountInput(browser=browser, node_name=node_onestream, domain=onestream_domain, page=dest_page)
+        if not social_input.input(text=live_social_account, clear=True):
+            raise LogicError("Onestream 社交平台账号输入失败")
+        time.sleep(0.1)
+
+        stream_key_el: Element = OnestreamStreamKeyInput(browser=browser, node_name=node_onestream, domain=onestream_domain, page=dest_page)
+        if not stream_key_el.input(text=stream_key, clear=True):
+            raise LogicError("Onestream 直播密钥输入失败")
+        time.sleep(0.1)
+
+        update_btn: Element = UpdateButton(browser=browser, node_name=node_onestream, domain=onestream_domain, page=dest_page)
+        if not update_btn.mouse(action="click"):
+            raise LogicError("Onestream 更新按钮点击失败")
+        time.sleep(5)
+
+        # 删除社交平台账号 - 延迟任务（46 分钟后执行）
+        try:
+            enqueue_delayed_delete(
+                onestream_account=onestream_account,
+                onestream_password=onestream_password,
+                live_social_account=live_social_account,
+                node_name_onestream=node_onestream,
+                node_api_base_url=node_api_base_url,
+                auth_token=auth_token,
+            )
+        except Exception as e:
+            pass  # 入队失败不影响主流程
+
+        # ---------- 步骤 3: create_video_stream_step ----------
+        from onestream.Home import (
+            HomePage,
+            CreateStreamButton,
+            SingleVideoButton,
+            OnestreamStorageButton,
+            VideoSearchInput,
+            VideoSelectButton,
+            LiveSocialAccountButton,
+            GoLiveButton as OnestreamGoLiveButton,
+            ConfirmLiveButton,
+            ClosePopupButton,
+        )
+
+        home_page_os: Page = HomePage(browser=browser, node_name=node_onestream, domain=onestream_domain)
+        if not home_page_os.is_current_url():
+            home_page_os.go()
+
+        create_btn: Element = CreateStreamButton(browser=browser, node_name=node_onestream, domain=onestream_domain, page=home_page_os)
+        if not create_btn.mouse(action="click"):
+            raise LogicError("Onestream 创建流按钮点击失败")
+        time.sleep(0.6)
+
+        single_btn: Element = SingleVideoButton(browser=browser, node_name=node_onestream, domain=onestream_domain, page=home_page_os)
+        if not single_btn.mouse(action="click"):
+            raise LogicError("Onestream 单视频按钮点击失败")
+        time.sleep(0.6)
+
+        storage_btn: Element = OnestreamStorageButton(browser=browser, node_name=node_onestream, domain=onestream_domain, page=home_page_os)
+        if not storage_btn.mouse(action="click"):
+            raise LogicError("Onestream 存储按钮点击失败")
+        time.sleep(0.6)
+
+        video_search: Element = VideoSearchInput(browser=browser, node_name=node_onestream, domain=onestream_domain, page=home_page_os)
+        if not video_search.input(text=video_name, clear=True):
+            raise LogicError("Onestream 视频搜索输入失败")
+        time.sleep(5)
+
+        video_select_btn: Element = VideoSelectButton(browser=browser, node_name=node_onestream, domain=onestream_domain, page=home_page_os)
+        if not video_select_btn.mouse(action="click"):
+            raise LogicError("Onestream 视频选择按钮点击失败")
+        time.sleep(5.1)
+
+        live_account_btn: Element = LiveSocialAccountButton(browser=browser, node_name=node_onestream, domain=onestream_domain, page=home_page_os, live_social_account=live_social_account)
+        if not live_account_btn.mouse(action="click"):
+            raise LogicError("Onestream 直播社交账号按钮点击失败")
+        time.sleep(0.6)
+
+        go_live_btn: Element = OnestreamGoLiveButton(browser=browser, node_name=node_onestream, domain=onestream_domain, page=home_page_os)
+        if not go_live_btn.mouse(action="click"):
+            raise LogicError("Onestream 开播按钮点击失败")
+        time.sleep(0.6)
+
+        confirm_btn: Element = ConfirmLiveButton(browser=browser, node_name=node_onestream, domain=onestream_domain, page=home_page_os)
+        if not confirm_btn.mouse(action="click"):
+            raise LogicError("Onestream 确认开播按钮点击失败")
+        time.sleep(0.6)
+
+        close_popup: Element = ClosePopupButton(browser=browser, node_name=node_onestream, domain=onestream_domain, page=home_page_os)
+        if not close_popup.mouse(action="click"):
+            raise LogicError("Onestream 关闭弹窗按钮点击失败")
+        time.sleep(0.6)
+
+        # ---------- 步骤 4: go_live_step ----------
+        from AutoPy.element import PreInstruction
+        from facebook.Live import (
+            GoLiveButtonFinally,
+            GoLiveButtonWithoutCurrent,
+            GoLiveButtonOfAddTitleDialog,
+            EnabledButton,
+            FeelingActivityButton,
+            LovelyButton,
+            CreatePostDisplay,
+            PostTitleInputField,
+            PostDescriptionInputField,
+            PostSaveButton,
+            EndLiveButton,
+        )
+
+        enabled_btn: Element = EnabledButton(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
+        has_enabled = enabled_btn.find_element()
+
+        if has_enabled:
+            feeling_btn: Element = FeelingActivityButton(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
+            if not feeling_btn.mouse(action="click", simulate="simulated", pre=PreInstruction.FIND_ELEMENT):
+                raise LogicError("感受/活动按钮不可用, 请检查感受/活动按钮状态")
+            time.sleep(2.7)
+
+            lovely_btn: Element = LovelyButton(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
+            if not lovely_btn.mouse(action="click", simulate="simulated", pre=PreInstruction.WAIT):
+                raise LogicError("可爱按钮不可用, 请检查可爱按钮状态")
+            time.sleep(1.7)
+
+            create_post_display: Element = CreatePostDisplay(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
+            if not create_post_display.wait(wait_type="wait_element_visible", timeout=60, ignore_error=True):
+                raise LogicError("创建贴文显示不可用, 请检查创建贴文显示状态")
+
+            if post_title:
+                title_input: Element = PostTitleInputField(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
+                if not title_input.keyboard(action="type", text=post_title, delay=0.6, pre=PreInstruction.WAIT):
+                    raise LogicError("贴文标题输入框不可用, 请检查贴文标题输入框状态")
+                time.sleep(1)
+
+            if post_description:
+                desc_input: Element = PostDescriptionInputField(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
+                if not desc_input.keyboard(action="type", text=post_description, delay=0.7, pre=PreInstruction.WAIT):
+                    raise LogicError("贴文描述输入框不可用, 请检查贴文描述输入框状态")
+                time.sleep(1)
+
+            save_btn: Element = PostSaveButton(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
+            if not save_btn.mouse(action="click", simulate="simulated", pre=PreInstruction.WAIT):
+                raise LogicError("贴文保存按钮不可用, 请检查贴文保存按钮状态")
+            time.sleep(3)
+
+        go_live_finally: Element = GoLiveButtonFinally(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
+        for _ in range(60):
+            if go_live_finally.get_attribute("aria-disabled", pre=PreInstruction.FIND_ELEMENT) != "true":
+                break
+            time.sleep(3.1)
+        else:
+            raise LogicError("最终直播按钮不可用, 请检查最终直播按钮状态")
+
+        go_without = GoLiveButtonWithoutCurrent(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
+        if not go_without.mouse(action="click", simulate="simulated", pre=PreInstruction.FIND_ELEMENT):
+            raise LogicError("facebook当前直播按钮不可用, 请检查Live Producer.当前直播按钮")
+        time.sleep(3.2 if has_enabled else 1.7)
+
+        if not has_enabled:
+            go_in_dialog = GoLiveButtonOfAddTitleDialog(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
+            if not go_in_dialog.mouse(action="click", simulate="simulated"):
+                raise LogicError("facebook添加标题对话框中的直播按钮不可用")
+            time.sleep(3.3)
+
+        end_live_button: Element = EndLiveButton(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
+        if not end_live_button.wait(wait_type="wait_element_visible"):
+            raise LogicError("facebook结束直播按钮不可用, 请检查facebook结束直播按钮状态")
+        time.sleep(2.6)
+
     except Exception as e:
-        pass  # 入队失败不影响主流程
-
-    # ---------- 步骤 3: create_video_stream_step ----------
-    from onestream.Home import (
-        HomePage,
-        CreateStreamButton,
-        SingleVideoButton,
-        OnestreamStorageButton,
-        VideoSearchInput,
-        VideoSelectButton,
-        LiveSocialAccountButton,
-        GoLiveButton as OnestreamGoLiveButton,
-        ConfirmLiveButton,
-        ClosePopupButton,
-    )
-
-    home_page_os: Page = HomePage(browser=browser, node_name=node_onestream, domain=onestream_domain)
-    if not home_page_os.is_current_url():
-        home_page_os.go()
-
-    create_btn: Element = CreateStreamButton(browser=browser, node_name=node_onestream, domain=onestream_domain, page=home_page_os)
-    if not create_btn.mouse(action="click"):
-        raise LogicError("Onestream 创建流按钮点击失败")
-    time.sleep(0.6)
-
-    single_btn: Element = SingleVideoButton(browser=browser, node_name=node_onestream, domain=onestream_domain, page=home_page_os)
-    if not single_btn.mouse(action="click"):
-        raise LogicError("Onestream 单视频按钮点击失败")
-    time.sleep(0.6)
-
-    storage_btn: Element = OnestreamStorageButton(browser=browser, node_name=node_onestream, domain=onestream_domain, page=home_page_os)
-    if not storage_btn.mouse(action="click"):
-        raise LogicError("Onestream 存储按钮点击失败")
-    time.sleep(0.6)
-
-    video_search: Element = VideoSearchInput(browser=browser, node_name=node_onestream, domain=onestream_domain, page=home_page_os)
-    if not video_search.input(text=video_name, clear=True):
-        raise LogicError("Onestream 视频搜索输入失败")
-    time.sleep(5)
-
-    video_select_btn: Element = VideoSelectButton(browser=browser, node_name=node_onestream, domain=onestream_domain, page=home_page_os)
-    if not video_select_btn.mouse(action="click"):
-        raise LogicError("Onestream 视频选择按钮点击失败")
-    time.sleep(5.1)
-
-    live_account_btn: Element = LiveSocialAccountButton(browser=browser, node_name=node_onestream, domain=onestream_domain, page=home_page_os, live_social_account=live_social_account)
-    if not live_account_btn.mouse(action="click"):
-        raise LogicError("Onestream 直播社交账号按钮点击失败")
-    time.sleep(0.6)
-
-    go_live_btn: Element = OnestreamGoLiveButton(browser=browser, node_name=node_onestream, domain=onestream_domain, page=home_page_os)
-    if not go_live_btn.mouse(action="click"):
-        raise LogicError("Onestream 开播按钮点击失败")
-    time.sleep(0.6)
-
-    confirm_btn: Element = ConfirmLiveButton(browser=browser, node_name=node_onestream, domain=onestream_domain, page=home_page_os)
-    if not confirm_btn.mouse(action="click"):
-        raise LogicError("Onestream 确认开播按钮点击失败")
-    time.sleep(0.6)
-
-    close_popup: Element = ClosePopupButton(browser=browser, node_name=node_onestream, domain=onestream_domain, page=home_page_os)
-    if not close_popup.mouse(action="click"):
-        raise LogicError("Onestream 关闭弹窗按钮点击失败")
-    time.sleep(0.6)
-
-    onestream_domain.close_tab()
-
-    # ---------- 步骤 4: go_live_step ----------
-    from AutoPy.element import PreInstruction
-    from facebook.Live import (
-        GoLiveButtonFinally,
-        GoLiveButtonWithoutCurrent,
-        GoLiveButtonOfAddTitleDialog,
-        EnabledButton,
-        FeelingActivityButton,
-        LovelyButton,
-        CreatePostDisplay,
-        PostTitleInputField,
-        PostDescriptionInputField,
-        PostSaveButton,
-        EndLiveButton,
-    )
-
-    enabled_btn: Element = EnabledButton(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
-    has_enabled = enabled_btn.find_element()
-
-    if has_enabled:
-        feeling_btn: Element = FeelingActivityButton(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
-        if not feeling_btn.mouse(action="click", simulate="simulated", pre=PreInstruction.FIND_ELEMENT):
-            raise LogicError("感受/活动按钮不可用, 请检查感受/活动按钮状态")
-        time.sleep(2.7)
-
-        lovely_btn: Element = LovelyButton(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
-        if not lovely_btn.mouse(action="click", simulate="simulated", pre=PreInstruction.WAIT):
-            raise LogicError("可爱按钮不可用, 请检查可爱按钮状态")
-        time.sleep(1.7)
-
-        create_post_display: Element = CreatePostDisplay(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
-        if not create_post_display.wait(wait_type="wait_element_visible", timeout=60, ignore_error=True):
-            raise LogicError("创建贴文显示不可用, 请检查创建贴文显示状态")
-
-        if post_title:
-            title_input: Element = PostTitleInputField(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
-            if not title_input.keyboard(action="type", text=post_title, delay=0.6, pre=PreInstruction.WAIT):
-                raise LogicError("贴文标题输入框不可用, 请检查贴文标题输入框状态")
-            time.sleep(1)
-
-        if post_description:
-            desc_input: Element = PostDescriptionInputField(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
-            if not desc_input.keyboard(action="type", text=post_description, delay=0.7, pre=PreInstruction.WAIT):
-                raise LogicError("贴文描述输入框不可用, 请检查贴文描述输入框状态")
-            time.sleep(1)
-
-        save_btn: Element = PostSaveButton(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
-        if not save_btn.mouse(action="click", simulate="simulated", pre=PreInstruction.WAIT):
-            raise LogicError("贴文保存按钮不可用, 请检查贴文保存按钮状态")
-        time.sleep(3)
-
-    go_live_finally: Element = GoLiveButtonFinally(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
-    for _ in range(60):
-        if go_live_finally.get_attribute("aria-disabled", pre=PreInstruction.FIND_ELEMENT) != "true":
-            break
-        time.sleep(3.1)
-    else:
-        raise LogicError("最终直播按钮不可用, 请检查最终直播按钮状态")
-
-    go_without = GoLiveButtonWithoutCurrent(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
-    if not go_without.mouse(action="click", simulate="simulated", pre=PreInstruction.FIND_ELEMENT):
-        raise LogicError("facebook当前直播按钮不可用, 请检查Live Producer.当前直播按钮")
-    time.sleep(3.2 if has_enabled else 1.7)
-
-    if not has_enabled:
-        go_in_dialog = GoLiveButtonOfAddTitleDialog(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
-        if not go_in_dialog.mouse(action="click", simulate="simulated"):
-            raise LogicError("facebook添加标题对话框中的直播按钮不可用")
-        time.sleep(3.3)
-
-    end_live_button: Element = EndLiveButton(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
-    if not end_live_button.wait(wait_type="wait_element_visible"):
-        raise LogicError("facebook结束直播按钮不可用, 请检查facebook结束直播按钮状态")
-    time.sleep(2.6)
-
+        raise e
+    finally:
+        try:
+            if wait_close_facebook_domain is not None:
+                wait_close_facebook_domain.close_tab()
+            if wait_close_onestream_domain is not None:
+                wait_close_onestream_domain.close_tab()
+        except Exception:
+            pass
+    
     return True
 
 
@@ -628,14 +647,16 @@ def main(
     log_file_path = "auto.log"
     max_workers = thread if thread and thread > 0 else 1
 
+    browser = Browser(node_api_base_url=node_api_base_url, auth_token=auth_token, node_name=node_name_onestream, timeout=180)
+
     def append_error_and_write(row_dict: dict) -> None:
         """追加失败行并实时写入 error.xlsx（多线程安全）"""
         with error_lock:
             error_rows.append(row_dict)
             try:
                 write_xlsx_file(file_path=error_file_path, data=list(error_rows))
-            except Exception:
-                pass
+            except Exception as write_err:
+                print(f"[append_error_and_write] 写入 {error_file_path} 失败: {write_err}", flush=True)
 
     def process_row(row_dict: dict) -> dict:
         index = row_dict.get('_row_index', 0)
@@ -648,7 +669,6 @@ def main(
         post_title = str(row_dict.get('post_title', ''))
         post_description = str(row_dict.get('post_description', ''))
 
-        browser = Browser(node_api_base_url=node_api_base_url, auth_token=auth_token, node_name=node_onestream, timeout=180)
         try:
             # 打开 Facebook 节点 Bit 浏览器（时机参考 autojs：流程开始前）
             bit_browser_open(browser=browser, node_name=node_onestream, browser_seq=int(node_facebook), args=[], queue=True, timeout=180)
@@ -668,13 +688,13 @@ def main(
             )
             result = {'row_index': index, 'success': True, 'result': 'ok'}
             with log_lock:
-                append_log(log_file_path, "INFO", f"{node_facebook} {video_name} {live_social_account} {result}")
+                append_log(log_file_path, "INFO", f"{node_facebook} {result}")
         except Exception as e:
             row_dict['error'] = str(e)
             append_error_and_write(row_dict)
             result = {'row_index': index, 'success': False, 'result': str(e)}
             with log_lock:
-                append_log(log_file_path, "ERROR", f"{node_facebook} {video_name} {live_social_account} {result}")
+                append_log(log_file_path, "ERROR", f"{node_facebook} {result}")
         finally:
             # 关闭 Facebook 节点 Bit 浏览器（时机参考 autojs：单行任务结束后）
             try:
@@ -696,6 +716,7 @@ def main(
                     future.result()
                 except Exception as e:
                     row_dict = future_to_row[future]
+                    row_dict['error'] = str(e)
                     index = row_dict.get('_row_index', 0)
                     results.append({'row_index': index, 'success': False, 'result': str(e)})
                     append_error_and_write(row_dict)
