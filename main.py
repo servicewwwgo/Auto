@@ -161,7 +161,7 @@ def _execute_delayed_delete_task(task: dict) -> None:
         node_name_onestream = task.get('node_name_onestream')
         live_social_account = task.get('live_social_account')
         node_api_base_url = task.get('node_api_base_url', 'https://browser.autowave.dev/api')
-        auth_token = task.get('auth_token', 'node_token_qwer2wsx')
+        auth_token = task.get('auth_token', 'rjxu1QtB8z_N-WmeIHFEvmTAMmCyyseStW_UPrMzgk')
         onestream_account = task.get('onestream_account')
         onestream_password = task.get('onestream_password')
         enqueue_time = task.get('enqueue_time', 0)
@@ -265,7 +265,7 @@ def enqueue_delayed_delete(
     live_social_account: str,
     node_name_onestream: str,
     node_api_base_url: str = 'https://browser.autowave.dev/api',
-    auth_token: str = 'node_token_qwer2wsx',
+    auth_token: str = 'rjxu1QtB8z_N-WmeIHFEvmTAMmCyyseStW_UPrMzgk',
 ) -> None:
     """将删除社交账号任务加入延迟队列，46 分钟后执行。"""
     _start_delayed_delete_worker()
@@ -285,7 +285,7 @@ def enqueue_delayed_delete(
     print(f"[延迟删除队列] 任务已入队: live_social_account={live_social_account}, 46分钟后执行, 队列大小={len(_delayed_delete_queue)}", flush=True)
 
 
-def go_live_streamm_step(browser: Browser, node_facebook: str, node_onestream: str, onestream_account: str = None, onestream_password: str = None, post_title: str = None, post_description: str = None, live_social_account: str = None, video_name: str = None, node_api_base_url: str = 'https://browser.autowave.dev/api', auth_token: str = 'node_token_qwer2wsx') -> bool:
+def go_live_streamm_step(browser: Browser, node_facebook: str, node_onestream: str, onestream_account: str = None, onestream_password: str = None, post_title: str = None, post_description: str = None, live_social_account: str = None, video_name: str = None, node_api_base_url: str = 'https://browser.autowave.dev/api', auth_token: str = 'rjxu1QtB8z_N-WmeIHFEvmTAMmCyyseStW_UPrMzgk') -> bool:
     """
     按顺序执行：live_stream（Facebook 获取 stream_key）→ create_social_account_stream_key（Onestream 创建社交账号并填密钥）→ create_video_stream（Onestream 创建视频流）→ go_live（Facebook 开播）。
     """
@@ -317,7 +317,7 @@ def go_live_streamm_step(browser: Browser, node_facebook: str, node_onestream: s
 
         check_page: Page = CheckPage(browser=browser, node_name=node_facebook, domain=fb_domain)
         if check_page.is_current_url():
-            raise LogicError("账户状态错误, 请先解决账户状态问题!")
+            raise LogicError("账户状态错误, 请先解决账户状态问题!", retry_task=False)
 
         login_page: Page = FacebookLoginPage(browser=browser, node_name=node_facebook, domain=fb_domain)
         if login_page.is_current_url():
@@ -413,7 +413,7 @@ def go_live_streamm_step(browser: Browser, node_facebook: str, node_onestream: s
         update_btn: Element = UpdateButton(browser=browser, node_name=node_onestream, domain=onestream_domain, page=dest_page)
         if not update_btn.mouse(action="click"):
             raise LogicError("Onestream 更新按钮点击失败")
-        time.sleep(5)
+        time.sleep(7)
 
         # 删除社交平台账号 - 延迟任务（46 分钟后执行）
         try:
@@ -522,7 +522,7 @@ def go_live_streamm_step(browser: Browser, node_facebook: str, node_onestream: s
             time.sleep(1.7)
 
             create_post_display: Element = CreatePostDisplay(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
-            if not create_post_display.wait(wait_type="wait_element_visible", timeout=60, ignore_error=True):
+            if not create_post_display.wait(timeout=60, ignore_error=True):
                 raise LogicError("创建贴文显示不可用, 请检查创建贴文显示状态")
 
             if post_title:
@@ -543,17 +543,17 @@ def go_live_streamm_step(browser: Browser, node_facebook: str, node_onestream: s
             time.sleep(3)
 
         go_live_finally: Element = GoLiveButtonFinally(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
-        for _ in range(60):
+        for _ in range(18):
             if go_live_finally.get_attribute("aria-disabled", pre=PreInstruction.FIND_ELEMENT) != "true":
                 break
-            time.sleep(3.1)
+            time.sleep(10)
         else:
-            raise LogicError("最终直播按钮不可用, 请检查最终直播按钮状态")
+            raise LogicError("facebook当前直播按钮没有点亮，不能点击")
 
-        go_without = GoLiveButtonWithoutCurrent(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
+        go_without: Element = GoLiveButtonWithoutCurrent(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
         if not go_without.mouse(action="click", simulate="simulated", pre=PreInstruction.FIND_ELEMENT):
-            raise LogicError("facebook当前直播按钮不可用, 请检查Live Producer.当前直播按钮")
-        time.sleep(3.2 if has_enabled else 1.7)
+            raise LogicError("facebook当前直播按钮没有点亮，不能点击")
+        time.sleep(1.3)
 
         if not has_enabled:
             go_in_dialog = GoLiveButtonOfAddTitleDialog(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
@@ -562,8 +562,8 @@ def go_live_streamm_step(browser: Browser, node_facebook: str, node_onestream: s
             time.sleep(3.3)
 
         end_live_button: Element = EndLiveButton(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
-        if not end_live_button.wait(wait_type="wait_element_visible"):
-            raise LogicError("facebook结束直播按钮不可用, 请检查facebook结束直播按钮状态")
+        if not end_live_button.wait():
+            raise LogicError("facebook结束直播按钮不可用")
         time.sleep(2.6)
 
     except Exception as e:
@@ -615,7 +615,7 @@ def main(
     file_path: str = None,
     clear_all_social_accounts: bool = False,
     node_api_base_url: str = 'https://browser.autowave.dev/api',
-    auth_token: str = 'node_token_qwer2wsx',
+    auth_token: str = 'rjxu1QtB8z_N-WmeIHFEvmTAMmCyyseStW_UPrMzgk',
 ) -> dict:
     """
     批量执行工作流：读取 Excel 任务列表，单线程或多线程执行 go_live_streamm_step，并输出结果。
@@ -668,6 +668,9 @@ def main(
         video_name = str(row_dict.get('video_name', ''))
         post_title = str(row_dict.get('post_title', ''))
         post_description = str(row_dict.get('post_description', ''))
+
+        if index < thread:
+            time.sleep(index)
 
         try:
             # 打开 Facebook 节点 Bit 浏览器（时机参考 autojs：流程开始前）

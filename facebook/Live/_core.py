@@ -56,7 +56,7 @@ class LivePage(Page):
         """判断是否存在直播页特有元素（当前仅依赖 URL，可在此补充页面元素检测）。"""
         from .connect_video_source import ConnectVideoSource
         connect_video_source: Element = ConnectVideoSource.instance(browser=self._browser, node_name=self._node_name, domain=self._domain, page=self)
-        if connect_video_source.wait(wait_type="wait_element_exists"):
+        if connect_video_source.wait():
             return True
             
         raise LogicError("直播页元素不存在!")

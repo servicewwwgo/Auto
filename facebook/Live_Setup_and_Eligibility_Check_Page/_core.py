@@ -31,7 +31,7 @@ class LiveSetupAndEligibilityCheckPage(Page):
 
         # 等待直播设置与资格检查页加载完成
         live_producer_homepage: Element = LiveProducerHomepage.instance(browser=self._browser, node_name=self._node_name, domain=self._domain, page=self)
-        if not live_producer_homepage.wait(wait_type="wait_element_exists"):
+        if not live_producer_homepage.wait():
             raise LogicError("点击首页直播按钮失败!")
 
         from .disable_element import DisableElement

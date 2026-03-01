@@ -58,4 +58,4 @@ class LoginPage(Page):
         login_email = LoginEmailInput.instance(
             browser=self._browser, node_name=self._node_name, domain=self.domain, page=self
         )
-        return login_email.wait(wait_type="wait_element_exists", timeout=15)
+        return login_email.wait(timeout=15)

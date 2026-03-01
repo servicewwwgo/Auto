@@ -59,4 +59,4 @@ class HomePage(Page):
         """判断是否存在首页特有元素（如创建流按钮或社交平台按钮）。"""
         from .create_stream_button import CreateStreamButton
         create_btn = CreateStreamButton.instance(browser=self._browser, node_name=self._node_name, domain=self.domain, page=self)
-        return create_btn.wait(wait_type="wait_element_exists", timeout=30)
+        return create_btn.wait(timeout=30)

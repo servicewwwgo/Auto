@@ -51,7 +51,7 @@ class DestinationsPage(Page):
         """判断是否存在 Destinations 页特有元素。"""
         from .add_social_platform import AddSocialPlatform
         add_btn: Element = AddSocialPlatform.instance(browser=self._browser, node_name=self._node_name, domain=self.domain, page=self)
-        return add_btn.wait(wait_type="wait_element_exists")
+        return add_btn.wait()
 
 
 class DisconnectAllSocialAccountPopupPage(PopupPage):
@@ -80,7 +80,7 @@ class DisconnectAllSocialAccountPopupPage(PopupPage):
         """判断是否存在 DisconnectAllSocialAccountPopupPage 页特有元素。"""
         from .disconnect_confirm_button import DisconnectConfirmButton
         confirm_btn: Element = DisconnectConfirmButton.instance(browser=self._browser, node_name=self._node_name, domain=self.domain, page=self)
-        return confirm_btn.wait(wait_type="wait_element_visible")
+        return confirm_btn.wait()
 
     def back(self) -> bool:
         """通过点击返回按钮返回 Destinations 页。"""
@@ -114,7 +114,7 @@ class DisconnectSocialAccountPopupPage(PopupPage):
         """判断是否存在 DisconnectSocialAccountPopupPage 页特有元素。"""
         from .disconnect_confirm_button import DisconnectConfirmButton
         confirm_btn: Element = DisconnectConfirmButton.instance(browser=self._browser, node_name=self._node_name, domain=self.domain, page=self)
-        return confirm_btn.wait(wait_type="wait_element_visible")
+        return confirm_btn.wait()
 
     def back(self) -> bool:
         """通过点击返回按钮返回 Destinations 页。"""
