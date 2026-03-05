@@ -26,7 +26,7 @@ class LiveSetupAndEligibilityCheckPage(Page):
         from .live_producer_homepage import LiveProducerHomepage
         # 点击 live_video_button 按钮
         live_video_button: Element = LiveVideoButton.instance(browser=self._browser, node_name=self._node_name, domain=self._domain, page=self)
-        if not live_video_button.mouse(action="click", simulate="simulated"):
+        if not live_video_button.mouse(action="click", simulate="simulated", timeout=60):
             raise LogicError("点击首页直播按钮失败!")
 
         # 等待直播设置与资格检查页加载完成

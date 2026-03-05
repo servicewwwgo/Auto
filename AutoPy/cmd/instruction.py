@@ -11,25 +11,34 @@ import uuid
 import time
 from ..browser import AutoPyRequest
 
+# Instruction 指令中元素定位支持的选择器类型，与节点端（如 AutoJS）协议一致；不支持 xpath（仅 CDP 等其它通道支持）
+ALLOWED_SELECTOR_TYPES = ("css", "id", "tag", "text", "ledby")
+
 
 class ElementClass:
-    """封装网页元素定位信息。"""
+    """封装网页元素定位信息。selectorType 仅支持 css|id|tag|text|ledby，与节点端 Instruction 协议一致。"""
 
     def __init__(self, tab_id: int, name: str, selector: str, selectorType: str, description: str = None, backup: str = None, text: str = None, parentName: str = None, childrenName: str = None, siblingName: str = None, siblingOffset: int = None, timeout: int = 180):
         """
         创建元素描述对象。
 
         说明：
-        - 参数语义与 `autojs.py` 中 `ElementClass` 对齐。
-        - `timeout` 仅为兼容保留参数，不参与序列化。
+        - 参数语义与节点端（如 AutoJS）ElementClass 对齐。
+        - selectorType 仅允许 css、id、tag、text、ledby；xpath 在 Instruction 协议中不支持。
+        - timeout 仅为兼容保留参数，不参与序列化。
         """
+        _st = (selectorType or "").strip().lower()
+        if _st not in ALLOWED_SELECTOR_TYPES:
+            raise ValueError(
+                f"selectorType 必须为 {ALLOWED_SELECTOR_TYPES} 之一，当前为 {selectorType!r}；Instruction 协议不支持 xpath"
+            )
         self.tabId = tab_id
         self.name = name
         self.description = description
         self.backup = backup
         self.text = text
         self.selector = selector
-        self.selectorType = selectorType
+        self.selectorType = _st
         self.parentName = parentName
         self.childrenName = childrenName
         self.siblingName = siblingName
@@ -114,10 +123,40 @@ class Instructions(AutoPyRequest):
 
 
 class NavigateInstruction(Instruction):
-    """页面导航指令：在标签页中打开目标 URL。"""
+    """页面导航指令：在已有标签页中打开目标 URL。"""
 
     def __init__(self, url: str, tab_id: int, delay: int = 0, retry: int = 0, timeout: int = 150, ignore_error: bool = False):
         super().__init__(tab_id=tab_id, type="navigate", params={"url": url}, delay=delay, retry=retry, timeout=timeout, ignore_error=ignore_error)
+
+
+class CreateTabAndNavigateInstruction(Instruction):
+    """
+    创建标签页并导航指令（对应 CDP create_tab_and_navigate）。
+
+    与 cdp_json_schema 第 14 节对齐：创建新标签页并导航到指定 URL；
+    支持 active、newWindow、导航前设置 cookies（先 about:blank + CDP Network.setCookies 再导航）。
+    - params.url: 目标 URL（必需）
+    - params.active: 是否激活新标签页（可选，默认 True）
+    - params.newWindow: 是否在新窗口中打开（可选，默认 False）
+    - params.cookies: 可选，导航前设置的 cookie 数组；每项至少 name、value，可含 url/domain/path/secure/httpOnly/sameSite/expires
+    """
+
+    def __init__(
+        self,
+        url: str,
+        tab_id: int = 0,
+        active: bool = True,
+        new_window: bool = False,
+        cookies: list = None,
+        delay: int = 0,
+        retry: int = 0,
+        timeout: int = 150,
+        ignore_error: bool = False,
+    ):
+        params = {"url": url, "active": active, "newWindow": new_window}
+        if cookies:
+            params["cookies"] = cookies
+        super().__init__(tab_id=tab_id, type="create_tab_and_navigate", params=params, delay=delay, retry=retry, timeout=timeout, ignore_error=ignore_error)
 
 
 class ExecuteScriptInstruction(Instruction):
@@ -230,7 +269,13 @@ class WaitInstruction(Instruction):
 
 
 class GetUrlInstruction(Instruction):
-    """当前 URL 获取指令。"""
+    """
+    当前 URL 获取指令。
+
+    与 cdp_json_schema / instruction 对齐：
+    - params.usage 可选 "variable" | "data" | "none"，默认 "data"（variable 用于变量赋值、data 用于数据返回、none 仅获取）。
+    - 执行结果 data 包含 usage、url 及当前站点的 cookies（cookies 为可选数组）。
+    """
 
     def __init__(self, tab_id: int, usage: str = "data", delay: int = 0, retry: int = 0, timeout: int = 15, ignore_error: bool = False):
         params = {"usage": usage}

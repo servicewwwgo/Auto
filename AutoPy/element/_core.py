@@ -139,7 +139,7 @@ class Element(ABC):
         data = self._execute_instruction(instructions, timeout=timeout + 60)
         return self._all_succeeded(data, instructions)
 
-    def mouse(self, action: str, simulate: str = "none", x: int = None, y: int = None, timeout: int = 180, ignore_error: bool = False, pre: PreInstruction = PreInstruction.WAIT) -> bool:
+    def mouse(self, action: str, simulate: str = "none", x: int = None, y: int = None, timeout: int = 60, ignore_error: bool = False, pre: PreInstruction = PreInstruction.WAIT) -> bool:
         """执行鼠标操作：click、dblclick、rightclick、hover、left_mousedown、left_mouseup、right_mousedown、right_mouseup、move_to。pre 可选 find_element 或 wait。"""
         pre_insts = self._pre_instructions(pre, timeout=timeout, ignore_error=ignore_error)
         inst = MouseInstruction(tab_id=self.tab_id, action=action, element_name=self._element.name, simulate=simulate, x=x, y=y)
@@ -147,7 +147,7 @@ class Element(ABC):
         data = self._execute_instruction(instructions, timeout=timeout + 30)
         return self._all_succeeded(data, instructions)
 
-    def keyboard(self, action: str, text: str = None, delay: int = 0.2, timeout: int = 180, ignore_error: bool = False, pre: PreInstruction = PreInstruction.WAIT) -> bool:
+    def keyboard(self, action: str, text: str = None, delay: int = 0.2, timeout: int = 60, ignore_error: bool = False, pre: PreInstruction = PreInstruction.WAIT) -> bool:
         """执行键盘操作：press（单键）、type（输入文本）、keydown、keyup。text 在 press/keydown/keyup 时作为 key，在 type 时作为输入文本。pre 可选 find_element 或 wait。"""
         pre_insts = self._pre_instructions(pre, timeout=timeout, ignore_error=ignore_error)
         inst = KeyboardInstruction(tab_id=self.tab_id, action=action, key=text if action in ("press", "keydown", "keyup") else None, text=text if action == "type" else None, element_name=self._element.name)

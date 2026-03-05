@@ -1,5 +1,6 @@
 import argparse
 import heapq
+import os
 import sys
 import threading
 import time
@@ -15,6 +16,8 @@ from AutoPy.error import LogicError
 from AutoPy.page import Page, PopupPage
 from AutoPy.element import Element
 
+# 在 clear_all_social_accounts_step 中通过 CDP Network.getAllCookies 获取并设置，供后续步骤使用
+onestream_cookies: list = []
 
 def append_log(log_file: str, level: str, message: str, encoding: str = "utf-8") -> None:
     """将一行日志追加写入文件，格式：[YYYY-MM-DD HH:MM:SS.mmm] [LEVEL] message"""
@@ -25,6 +28,7 @@ def append_log(log_file: str, level: str, message: str, encoding: str = "utf-8")
             f.write(line)
     except Exception as e:
         print(f"[append_log] 写入日志失败: {e}", flush=True)
+
 
 def login_onestream_step(browser: Browser, node_name: str, onestream_account: str = None, onestream_password: str = None) -> bool:
     """
@@ -79,34 +83,39 @@ def delete_social_account_step(browser: Browser, node_name: str, live_social_acc
         raise LogicError("请提供 live_social_account")
 
     domain = OnestreamDomain(browser=browser, node_name=node_name)
-    
-    dest_page: Page = DestinationsPage(browser=browser, node_name=node_name, domain=domain)
-    if not dest_page.go():
-        raise LogicError("Onestream 社交平台页打开失败")
+    try:
+        dest_page: Page = DestinationsPage(browser=browser, node_name=node_name, domain=domain)
+        if not dest_page.go():
+            raise LogicError("Onestream 社交平台页打开失败")
 
-    account_search: Element = AccountSearchInput(browser=browser, node_name=node_name, domain=domain, page=dest_page)
-    if not account_search.input(text=live_social_account, clear=True):
-        raise LogicError("Onestream 社交平台账号搜索失败")
-    time.sleep(3)
+        account_search: Element = AccountSearchInput(browser=browser, node_name=node_name, domain=domain, page=dest_page)
+        if not account_search.input(text=live_social_account, clear=True):
+            raise LogicError("Onestream 社交平台账号搜索失败")
+        time.sleep(3)
 
-    disconnect_popup_page: PopupPage = DisconnectSocialAccountPopupPage(browser=browser, node_name=node_name, domain=domain)
-    if not disconnect_popup_page.go():
-        raise LogicError("Onestream 断开社交平台账号弹窗页打开失败")
-    time.sleep(0.7)
+        disconnect_popup_page: PopupPage = DisconnectSocialAccountPopupPage(browser=browser, node_name=node_name, domain=domain)
+        if not disconnect_popup_page.go():
+            raise LogicError("Onestream 断开社交平台账号弹窗页打开失败")
+        time.sleep(0.7)
 
-    disconnect_confirm_button: Element = DisconnectConfirmButton(browser=browser, node_name=node_name, domain=domain, page=disconnect_popup_page)
-    if not disconnect_confirm_button.mouse(action="click"):
-        raise LogicError("Onestream 断开社交平台账号确认按钮点击失败")
-    time.sleep(3)
+        disconnect_confirm_button: Element = DisconnectConfirmButton(browser=browser, node_name=node_name, domain=domain, page=disconnect_popup_page)
+        if not disconnect_confirm_button.mouse(action="click"):
+            raise LogicError("Onestream 断开社交平台账号确认按钮点击失败")
+        time.sleep(3)
 
-    domain.close_tab()
-    return True
+        return True
+    finally:
+        try:
+            domain.close_tab()
+        except Exception:
+            pass
 
 
 def clear_all_social_accounts_step(browser: Browser, node_name: str) -> bool:
     """
-    Onestream 清除所有社交平台连接：先登录，进入社交平台页，若有账号则全选并全部断开后确认。
+    Onestream 清除所有社交平台连接：先登录，进入社交平台页，获取当前 cookies 并写入全局 onestream_cookies，若有账号则全选并全部断开后确认。
     """
+    global onestream_cookies
     from onestream import OnestreamDomain
     from onestream.Destinations import (
         DestinationsPage,
@@ -116,32 +125,44 @@ def clear_all_social_accounts_step(browser: Browser, node_name: str) -> bool:
     )
 
     domain = OnestreamDomain(browser=browser, node_name=node_name)
+    try:
+        # 进入社交平台页
+        dest_page: Page = DestinationsPage(browser=browser, node_name=node_name, domain=domain)
+        if not dest_page.go():
+            raise LogicError("Onestream 社交平台页打开失败")
 
-    # 进入社交平台页
-    dest_page: Page = DestinationsPage(browser=browser, node_name=node_name, domain=domain)
-    if not dest_page.go():
-        raise LogicError("Onestream 社交平台页打开失败")
+        # 获取当前 Onestream 站点的 cookies，设置为全局变量供后续步骤使用（仅保留域名含 onestream 的 cookie）
+        result = domain.send_command("Network.getAllCookies", {})
+        if result and isinstance(result.get("data"), dict):
+            all_cookies = result["data"].get("cookies") or []
+            onestream_cookies = [c for c in all_cookies if isinstance(c, dict) and "onestream" in (c.get("domain") or "").lower()]
+        else:
+            raise LogicError("Onestream 清除所有社交平台账号失败")
 
-    # 全选所有社交平台账号
-    all_sel: Element = SocialAccountAllSelectedButton(browser=browser, node_name=node_name, domain=domain, page=dest_page)
-    if not all_sel.mouse(action="click"):
-        raise LogicError("Onestream 全选所有社交平台账号按钮点击失败")
-    time.sleep(1)
+        # 全选所有社交平台账号
+        all_sel: Element = SocialAccountAllSelectedButton(browser=browser, node_name=node_name, domain=domain, page=dest_page)
+        if not all_sel.mouse(action="click"):
+            return False
+        time.sleep(1)
 
-    # 进入断开所有社交平台账号弹窗页
-    disconnect_all_popup_page: PopupPage = DisconnectAllSocialAccountPopupPage(browser=browser, node_name=node_name, domain=domain)
-    if not disconnect_all_popup_page.go():
-        raise LogicError("Onestream 断开所有社交平台账号弹窗页打开失败")
-    time.sleep(1)
+        # 进入断开所有社交平台账号弹窗页
+        disconnect_all_popup_page: PopupPage = DisconnectAllSocialAccountPopupPage(browser=browser, node_name=node_name, domain=domain)
+        if not disconnect_all_popup_page.go():
+            raise LogicError("Onestream 断开所有社交平台账号弹窗页打开失败")
+        time.sleep(1)
 
-    # 确认断开所有社交平台账号
-    confirm_btn: Element = DisconnectConfirmButton(browser=browser, node_name=node_name, domain=domain, page=disconnect_all_popup_page)
-    if not confirm_btn.mouse(action="click"):
-        raise LogicError("Onestream 断开所有社交平台账号确认按钮点击失败")
-    time.sleep(7)
+        # 确认断开所有社交平台账号
+        confirm_btn: Element = DisconnectConfirmButton(browser=browser, node_name=node_name, domain=domain, page=disconnect_all_popup_page)
+        if not confirm_btn.mouse(action="click"):
+            return False
+        time.sleep(7)
 
-    domain.close_tab()
-    return True
+        return True
+    finally:
+        try:
+            domain.close_tab()
+        except Exception:
+            pass
 
 
 # ============================================================================
@@ -160,15 +181,15 @@ def _execute_delayed_delete_task(task: dict) -> None:
     try:
         node_name_onestream = task.get('node_name_onestream')
         live_social_account = task.get('live_social_account')
-        node_api_base_url = task.get('node_api_base_url', 'https://browser.autowave.dev/api')
-        auth_token = task.get('auth_token', 'rjxu1QtB8z_N-WmeIHFEvmTAMmCyyseStW_UPrMzgk')
-        onestream_account = task.get('onestream_account')
-        onestream_password = task.get('onestream_password')
+        node_api_base_url = task.get('node_api_base_url') or os.environ.get('NODE_API_BASE_URL') or 'https://browser.autowave.dev/api'
+        auth_token = task.get('auth_token') or os.environ.get('AUTH_TOKEN')
+        if not auth_token:
+            print("[延迟删除] 跳过: 未配置 AUTH_TOKEN（环境变量或任务参数）", flush=True)
+            return
         enqueue_time = task.get('enqueue_time', 0)
         elapsed = time.time() - enqueue_time
         print(f"[延迟删除] 开始: live_social_account={live_social_account}, 已等待 {elapsed:.1f}s", flush=True)
         browser = Browser(node_api_base_url=node_api_base_url, auth_token=auth_token, node_name=node_name_onestream, timeout=180)
-        login_onestream_step(browser=browser, node_name=node_name_onestream, onestream_account=onestream_account, onestream_password=onestream_password)
         delete_social_account_step(browser=browser, node_name=node_name_onestream, live_social_account=live_social_account)
         print(f"[延迟删除] 成功: live_social_account={live_social_account}", flush=True)
     except Exception as e:
@@ -264,8 +285,8 @@ def enqueue_delayed_delete(
     onestream_password: str,
     live_social_account: str,
     node_name_onestream: str,
-    node_api_base_url: str = 'https://browser.autowave.dev/api',
-    auth_token: str = 'rjxu1QtB8z_N-WmeIHFEvmTAMmCyyseStW_UPrMzgk',
+    node_api_base_url: str,
+    auth_token: str,
 ) -> None:
     """将删除社交账号任务加入延迟队列，46 分钟后执行。"""
     _start_delayed_delete_worker()
@@ -285,10 +306,15 @@ def enqueue_delayed_delete(
     print(f"[延迟删除队列] 任务已入队: live_social_account={live_social_account}, 46分钟后执行, 队列大小={len(_delayed_delete_queue)}", flush=True)
 
 
-def go_live_streamm_step(browser: Browser, node_facebook: str, node_onestream: str, onestream_account: str = None, onestream_password: str = None, post_title: str = None, post_description: str = None, live_social_account: str = None, video_name: str = None, node_api_base_url: str = 'https://browser.autowave.dev/api', auth_token: str = 'rjxu1QtB8z_N-WmeIHFEvmTAMmCyyseStW_UPrMzgk') -> bool:
+def go_live_streamm_step(browser: Browser, node_facebook: str, node_onestream: str, onestream_account: str = None, onestream_password: str = None, post_title: str = None, post_description: str = None, live_social_account: str = None, video_name: str = None, node_api_base_url: str = None, auth_token: str = None) -> bool:
     """
     按顺序执行：live_stream（Facebook 获取 stream_key）→ create_social_account_stream_key（Onestream 创建社交账号并填密钥）→ create_video_stream（Onestream 创建视频流）→ go_live（Facebook 开播）。
+    node_facebook：Facebook 节点名称；node_onestream：Onestream 节点名称。
     """
+    node_api_base_url = node_api_base_url or os.environ.get('NODE_API_BASE_URL') or 'https://browser.autowave.dev/api'
+    auth_token = auth_token or os.environ.get('AUTH_TOKEN')
+    if not auth_token:
+        raise LogicError("未配置 AUTH_TOKEN，请设置环境变量 AUTH_TOKEN 或传入参数")
 
     wait_close_facebook_domain : FacebookDomain = None
     wait_close_onestream_domain : OnestreamDomain = None
@@ -362,7 +388,8 @@ def go_live_streamm_step(browser: Browser, node_facebook: str, node_onestream: s
             UpdateButton,
         )
 
-        onestream_domain = OnestreamDomain(browser=browser, node_name=node_onestream)
+        # 使用 onestream_cookies 创建带 cookie 的 Onestream 标签页（先 about:blank + setCookies 再导航到 HOME_URL）
+        onestream_domain = OnestreamDomain(browser=browser, node_name=node_onestream, new_window=True)
         wait_close_onestream_domain = onestream_domain
 
         dest_page: Page = DestinationsPage(browser=browser, node_name=node_onestream, domain=onestream_domain)
@@ -426,7 +453,7 @@ def go_live_streamm_step(browser: Browser, node_facebook: str, node_onestream: s
                 auth_token=auth_token,
             )
         except Exception as e:
-            pass  # 入队失败不影响主流程
+            print(f"[WARN] 延迟删除入队失败: {e}", flush=True)
 
         # ---------- 步骤 3: create_video_stream_step ----------
         from onestream.Home import (
@@ -507,6 +534,9 @@ def go_live_streamm_step(browser: Browser, node_facebook: str, node_onestream: s
             EndLiveButton,
         )
 
+        # 重新激活 facebook 标签页（CDP Page.bringToFront 无参数，tab 由 send_command 的 tab_id 指定）
+        # fb_domain.send_command("Page.bringToFront", {})
+
         enabled_btn: Element = EnabledButton(browser=browser, node_name=node_facebook, domain=fb_domain, page=live_page)
         has_enabled = enabled_btn.find_element()
 
@@ -566,8 +596,8 @@ def go_live_streamm_step(browser: Browser, node_facebook: str, node_onestream: s
             raise LogicError("facebook结束直播按钮不可用")
         time.sleep(2.6)
 
-    except Exception as e:
-        raise e
+    except Exception:
+        raise
     finally:
         try:
             if wait_close_facebook_domain is not None:
@@ -613,14 +643,18 @@ def main(
     node_name_onestream: str = None,
     thread: int = None,
     file_path: str = None,
-    clear_all_social_accounts: bool = False,
-    node_api_base_url: str = 'https://browser.autowave.dev/api',
-    auth_token: str = 'rjxu1QtB8z_N-WmeIHFEvmTAMmCyyseStW_UPrMzgk',
+    node_api_base_url: str = None,
+    auth_token: str = None,
 ) -> dict:
     """
-    批量执行工作流：读取 Excel 任务列表，单线程或多线程执行 go_live_streamm_step，并输出结果。
-    可选先执行清除所有社交平台。
+    批量执行工作流：读取 Excel 任务列表，先执行清除所有社交平台，再单/多线程执行 go_live_streamm_step。
+    auth_token 与 node_api_base_url 未传入时从环境变量 AUTH_TOKEN、NODE_API_BASE_URL 读取。
     """
+    auth_token = auth_token or os.environ.get('AUTH_TOKEN')
+    if not auth_token:
+        return {'success': False, 'message': '未配置 AUTH_TOKEN，请设置环境变量 AUTH_TOKEN'}
+    node_api_base_url = node_api_base_url or os.environ.get('NODE_API_BASE_URL') or 'https://browser.autowave.dev/api'
+
     try:
         rows_data = read_xlsx_file(file_path)
         total_rows = len(rows_data)
@@ -630,14 +664,13 @@ def main(
     if total_rows == 0:
         return {'success': False, 'message': 'Excel 中无数据'}
 
-    if clear_all_social_accounts and rows_data:
-        first_node = node_name_onestream or str(rows_data[0].get('node_name_onestream', ''))
-        if first_node:
-            try:
-                browser = Browser(node_api_base_url=node_api_base_url, auth_token=auth_token, node_name=first_node, timeout=180)
-                clear_all_social_accounts_step(browser=browser, node_name=first_node)
-            except Exception as e:
-                return {'success': False, 'message': f'清除所有社交平台失败: {str(e)}'}
+    first_node = node_name_onestream or str(rows_data[0].get('node_name_onestream', ''))
+    if first_node:
+        try:
+            browser = Browser(node_api_base_url=node_api_base_url, auth_token=auth_token, node_name=first_node, timeout=180)
+            clear_all_social_accounts_step(browser=browser, node_name=first_node)
+        except Exception as e:
+            return {'success': False, 'message': f'清除所有社交平台失败: {str(e)}'}
 
     results = []
     error_rows = []
@@ -669,12 +702,24 @@ def main(
         post_title = str(row_dict.get('post_title', ''))
         post_description = str(row_dict.get('post_description', ''))
 
+        try:
+            browser_seq = int(node_facebook)
+        except (ValueError, TypeError):
+            err_msg = "node_name_facebook 必须为可转换为整数的值"
+            row_dict['error'] = err_msg
+            append_error_and_write(row_dict)
+            result = {'row_index': index, 'success': False, 'result': err_msg}
+            with log_lock:
+                append_log(log_file_path, "ERROR", f"{node_facebook} {result}")
+            results.append(result)
+            return result
+
         if index < thread:
             time.sleep(index)
 
         try:
             # 打开 Facebook 节点 Bit 浏览器（时机参考 autojs：流程开始前）
-            bit_browser_open(browser=browser, node_name=node_onestream, browser_seq=int(node_facebook), args=[], queue=True, timeout=180)
+            bit_browser_open(browser=browser, node_name=node_onestream, browser_seq=browser_seq, args=[], queue=True, timeout=180)
 
             go_live_streamm_step(
                 browser=browser,
@@ -702,7 +747,7 @@ def main(
             # 关闭 Facebook 节点 Bit 浏览器（时机参考 autojs：单行任务结束后）
             try:
                 time.sleep(5)
-                bit_browser_close(browser=browser, node_name=node_onestream, browser_seq=int(node_facebook), timeout=180)
+                bit_browser_close(browser=browser, node_name=node_onestream, browser_seq=browser_seq, timeout=180)
             except Exception:
                 pass
         results.append(result)
@@ -733,13 +778,18 @@ if __name__ == "__main__":
         sys.stdout.reconfigure(line_buffering=True)
         sys.stderr.reconfigure(line_buffering=True)
 
+    auth_token = os.environ.get('AUTH_TOKEN')
+    node_api_base_url = os.environ.get('NODE_API_BASE_URL') or 'https://browser.autowave.dev/api'
+    if not auth_token:
+        print("错误: 请设置环境变量 AUTH_TOKEN", file=sys.stderr, flush=True)
+        sys.exit(1)
+
     parser = argparse.ArgumentParser(description='Auto 批量开播 - 从 Excel 读取任务并执行')
     parser.add_argument('-f', '--file_path', type=str, default='./data.xlsx', help='Excel 文件路径')
     parser.add_argument('-a', '--onestream_account', type=str, default='', help='Onestream 账号')
     parser.add_argument('-p', '--onestream_password', type=str, default='', help='Onestream 密码')
     parser.add_argument('-n', '--node_name_onestream', type=str, default='', help='Onestream 节点名称')
     parser.add_argument('-t', '--thread', type=int, default=1, help='线程数')
-    parser.add_argument('-c', '--clear_all_social_accounts', action='store_true', help='执行前清除所有社交平台')
     args = parser.parse_args()
 
     result = main(
@@ -748,7 +798,8 @@ if __name__ == "__main__":
         node_name_onestream=args.node_name_onestream or None,
         thread=args.thread,
         file_path=args.file_path,
-        clear_all_social_accounts=args.clear_all_social_accounts,
+        node_api_base_url=node_api_base_url,
+        auth_token=auth_token,
     )
     print(result, flush=True)
 
@@ -756,3 +807,5 @@ if __name__ == "__main__":
     wait_for_all_delayed_delete_tasks_complete()
     stop_delayed_delete_worker()
     print("[主程序] 所有任务已完成，程序退出", flush=True)
+    if sys.gettrace() is not None:
+        input("调试结束，按 Enter 退出...")

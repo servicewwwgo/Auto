@@ -348,20 +348,23 @@ class CloseConsoleLogsCommand(CdpCommand):
 class CreateTabAndNavigateCommand(CdpCommand):
     """
     创建标签页并导航到指定 URL。
+    支持导航前设置 cookies（后端先 about:blank + Network.setCookies 再导航）。
 
     仅当 ``active`` 为 True 时写入 data.active；
-    仅当 ``new_window`` 为 True 时写入 data.newWindow。
+    仅当 ``new_window`` 为 True 时写入 data.newWindow；
+    仅当 ``cookies`` 非空时写入 data.cookies。
 
     Args:
         node_name (str): 节点名称。
         url (str): 目标 URL。
         active (bool): 是否激活新标签页，默认 True。
         new_window (bool): 是否在新窗口创建，默认 False。
+        cookies (list): 可选，导航前设置的 cookie 数组（CDP CookieParam 格式）。
         timeout (int): 请求超时时间（秒）。
     """
     type = "cdp"
 
-    def __init__(self, node_name: str, url: str, active: bool = None, new_window: bool = None, timeout: int = 180):
+    def __init__(self, node_name: str, url: str, active: bool = None, new_window: bool = None, cookies: list = None, timeout: int = 180):
         cdp_data = {
             "url": url,
         }
@@ -369,6 +372,8 @@ class CreateTabAndNavigateCommand(CdpCommand):
             cdp_data["active"] = active
         if new_window is not None:
             cdp_data["newWindow"] = new_window
+        if cookies:
+            cdp_data["cookies"] = cookies
         super().__init__(node_name=node_name, cdp_type="create_tab_and_navigate", cdp_data=cdp_data, timeout=timeout)
 
 

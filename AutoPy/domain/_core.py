@@ -112,9 +112,9 @@ class Domain:
     def start_url(self, value: str | None):
         self._start_url = value
 
-    def create_tab(self, url: str, active: bool = True, new_window: bool = False) -> int | None:
-        """创建标签页并导航到指定 URL，返回标签页 ID。"""
-        cmd = CreateTabAndNavigateCommand(node_name=self.node_name, url=url, active=active, new_window=new_window)
+    def create_tab(self, url: str, active: bool = True, new_window: bool = False, cookies: list = None) -> int | None:
+        """创建标签页并导航到指定 URL，可选导航前设置 cookies，返回标签页 ID。"""
+        cmd = CreateTabAndNavigateCommand(node_name=self.node_name, url=url, active=active, new_window=new_window, cookies=cookies)
         resp = self._browser.request(cmd)
         payload = _parse_cdp_response(resp, expect_success=True)
         if not payload:

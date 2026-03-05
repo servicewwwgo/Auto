@@ -41,7 +41,7 @@
 | 方法 | 说明 |
 |------|------|
 | `_get_node_by_name(node_name)` | 调用 `GET {base}/node/detail-by-name?node_name=xxx`，解析 JSON 得到第一个匹配节点的 `node_id`，并写入 `node_id_map`。遇网络/解析/业务错误会抛 `NetworkError` 或 `ParseError`。**带重试**：最多 10 次，间隔 15 秒。 |
-| `request(request: AutoPyRequest)` | 若 `request.node_name` 尚未在 `node_id_map` 中，先调用 `_get_node_by_name`；再向 `{base}/browser/{node_id}{request.url}` 发 `request.method` 请求，headers 合并（请求里的 `Authorization` 被忽略，统一用 API Token），body 为 `request.body`。返回 `requests.Response`。**带重试**：最多 3 次，间隔 3 秒。 |
+| `request(request: AutoPyRequest)` | 若 `request.node_name` 尚未在 `node_id_map` 中，先调用 `_get_node_by_name`；再向 `{base}/{request.type}/{node_id}{request.url}` 发 `request.method` 请求（`request.type` 由子类指定，如 `instruction`、`http`、`cdp`），headers 合并（请求里的 `Authorization` 被忽略，统一用 API Token），body 为 `request.body`。返回 `requests.Response`。**带重试**：最多 3 次，间隔 3 秒。 |
 
 ### 3. 重试装饰器 `_retry_on_error`
 
@@ -79,4 +79,4 @@ resp = browser.request(req)
 
 ## 小结
 
-- **browser** 模块负责：用**节点名称**解析**节点 ID**，并通过节点 API 的 **Bearer Token** 认证，将 **AutoPyRequest** 转发到对应浏览器节点的 `browser` 路径下，并统一处理超时与重试。
+- **browser** 模块负责：用**节点名称**解析**节点 ID**，并通过节点 API 的 **Bearer Token** 认证，将 **AutoPyRequest** 按 `request.type` 转发到对应节点的 `{base}/{type}/{node_id}{url}`，并统一处理超时与重试。

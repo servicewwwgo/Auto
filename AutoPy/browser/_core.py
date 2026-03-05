@@ -6,6 +6,7 @@ AutoPy 浏览器模块核心实现
 
 from abc import ABC
 import json
+import threading
 import time
 import requests
 import uuid
@@ -69,13 +70,14 @@ class Browser:
     """统一浏览器客户端：按节点名解析节点 ID，向节点转发 CDP/指令/HTTP 等请求。"""
 
     def __init__(self, node_api_base_url: str, auth_token: str, node_name: str = None, timeout: int = 180) -> None:
-        _log.info("初始化 Browser", extra={ "node_api_base_url": node_api_base_url, "auth_token": auth_token, "node_name": node_name })
+        _log.info("初始化 Browser", extra={"node_api_base_url": node_api_base_url, "auth_token_set": bool(auth_token), "node_name": node_name})
 
         self.node_api_base_url = node_api_base_url.rstrip("/")
         self.auth_token = auth_token
         self.node_name = node_name
         self.timeout = timeout
-        self.node_id_map = dict() # 节点名称 -> 节点ID
+        self.node_id_map = dict()  # 节点名称 -> 节点ID
+        self._node_id_map_lock = threading.Lock()
 
     @_retry_on_error(max_retries=10, delay=15)
     def _get_node_by_name(self, node_name: str) -> str:
@@ -122,16 +124,18 @@ class Browser:
         if not node_id:
             raise ParseError(f"获取节点配置: 节点名称 '{node_name}', 节点可能不在线")
 
-        self.node_id_map[node_name] = node_id
+        with self._node_id_map_lock:
+            self.node_id_map[node_name] = node_id
         return node_id
 
     @_retry_on_error(max_retries=3, delay=3)
     def request(self, request: AutoPyRequest) -> requests.Response:
         """将请求转发到对应节点：先解析 node_id，再按 request.type 拼 URL 发送。"""
         node_name = request.node_name if request.node_name is not None else self.node_name
-        if node_name not in self.node_id_map:
-            self._get_node_by_name(node_name)
-        node_id = self.node_id_map[node_name]
+        with self._node_id_map_lock:
+            node_id = self.node_id_map.get(node_name)
+        if node_id is None:
+            node_id = self._get_node_by_name(node_name)
 
         request_url = f"{self.node_api_base_url}/{request.type}/{node_id}{request.url}"
         headers = {"Authorization": f"Bearer {self.auth_token}"}
@@ -143,7 +147,8 @@ class Browser:
         timeout = self.timeout if request.timeout is None or request.timeout == 0 else request.timeout
 
         try:
-            _log.debug(f"执行请求 type={request.type} id={request.id} url={request_url} headers={headers} body={body}")
+            log_headers = {k: "<redacted>" if k.lower() == "authorization" else v for k, v in headers.items()}
+            _log.debug(f"执行请求 type={request.type} id={request.id} url={request_url} headers={log_headers} body={body}")
             response = requests.request(method=request.method, url=request_url, headers=headers, json=body, timeout=timeout)
             response.raise_for_status()
             _log.debug(f"请求响应成功 type={request.type} id={request.id} response={response.text}")
